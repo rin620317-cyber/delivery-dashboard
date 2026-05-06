@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>フードデリバリー売上管理</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+:root {
+  --bg-primary: #0d0d12;
+  --bg-secondary: #16161e;
+  --bg-card: #1e1e28;
+  --border: #2a2a38;
+  --text-primary: #f0f0f8;
+  --text-secondary: #9090a8;
+  --text-muted: #50505e;
+  --uber: #06C167;
+  --demae: #e60012;
+  --menu-col: #FF6B00;
+  --rocket: #4A90E2;
+  --accent: #FFD700;
+  --self-col: #7C6BFF;
+  --wife-col: #FF6B9D;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', 'Hiragino Sans', sans-serif;
+  min-height: 100vh;
+}
+
+/* HEADER */
+.header {
+  background: linear-gradient(135deg, #12122a 0%, #1a1a3a 60%, #0f1f50 100%);
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+}
+.header-brand { display: flex; align-items: center; gap: 10px; }
+.bike-icon { flex-shrink: 0; }
+@media (max-width: 540px) { .bike-icon { display: none; } }
+.header-brand h1 {
+  font-size: 1.2rem;
+  font-weight: 800;
+  background: linear-gradient(90deg, #FFD700, #FF8C00);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  white-space: nowrap;
+}
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 40px;
+  padding: 6px 14px;
+}
+.month-nav button {
+  background: none; border: none; color: #fff;
+  cursor: pointer; font-size: 1.1rem; padding: 2px 6px;
+  opacity: 0.6; transition: opacity 0.2s; border-radius: 4px;
+}
+.month-nav button:hover { opacity: 1; background: rgba(255,255,255,0.1); }
+.month-nav span { font-weight: 700; font-size: 0.95rem; min-width: 90px; text-align: center; }
+
+/* TABS */
+.tabs {
+  display: flex;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab-btn {
+  padding: 13px 20px;
+  background: none; border: none;
+  color: var(--text-secondary);
+  cursor: pointer; font-size: 0.875rem; font-weight: 500;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  display: flex; align-items: center; gap: 6px;
+}
+.tab-btn:hover { color: var(--text-primary); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* CONTENT */
+.content { max-width: 1100px; margin: 0 auto; padding: 22px 18px; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* SUMMARY CARDS */
+.summary-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+@media (max-width: 620px) { .summary-row { grid-template-columns: 1fr; } }
+
+.s-card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.s-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.s-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+}
+.s-card.total::before { background: linear-gradient(90deg, #FFD700, #FF8C00); }
+.s-card.self::before { background: var(--self-col); }
+.s-card.wife::before { background: var(--wife-col); }
+.s-card .s-label { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+.s-card .s-amt { font-size: 1.9rem; font-weight: 800; letter-spacing: -1px; line-height: 1; margin-bottom: 6px; }
+.s-card.total .s-amt { color: var(--accent); }
+.s-card.self .s-amt { color: var(--self-col); }
+.s-card.wife .s-amt { color: var(--wife-col); }
+.s-card .s-sub { font-size: 0.8rem; color: var(--text-muted); }
+
+/* SERVICE CARDS */
+.svc-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+@media (max-width: 700px) { .svc-row { grid-template-columns: repeat(2, 1fr); } }
+
+.svc-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-left: 3px solid;
+}
+.svc-card .svc-hd { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; }
+.svc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.svc-name { font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); }
+.svc-split { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; }
+.svc-split-row { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; }
+.svc-split-label { font-size: 0.7rem; font-weight: 600; min-width: 22px; }
+.svc-split-amt { font-weight: 800; flex: 1; }
+.svc-split-del { font-size: 0.7rem; color: var(--text-muted); }
+.svc-total-bar { border-top: 1px solid var(--border); padding-top: 6px; font-size: 0.72rem; color: var(--text-muted); }
+
+/* CHARTS */
+/* STREAK */
+.streak-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+@media (max-width: 520px) { .streak-row { grid-template-columns: 1fr; } }
+.streak-card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+  transition: transform 0.2s;
+}
+.streak-card:hover { transform: translateY(-2px); }
+.streak-card.self { border-top: 3px solid var(--self-col); }
+.streak-card.wife { border-top: 3px solid var(--wife-col); }
+.streak-fire { font-size: 2rem; line-height: 1; filter: drop-shadow(0 0 6px rgba(255,150,0,0.6)); }
+.streak-info { flex: 1; }
+.streak-person { font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 2px; font-weight: 600; }
+.streak-num { font-size: 1.6rem; font-weight: 900; line-height: 1; }
+.streak-num.self { color: var(--self-col); }
+.streak-num.wife { color: var(--wife-col); }
+.streak-longest { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+.streak-right { text-align: right; }
+.streak-pct { font-size: 1.2rem; font-weight: 800; }
+.streak-pct.self { color: var(--self-col); }
+.streak-pct.wife { color: var(--wife-col); }
+.streak-pct-label { font-size: 0.68rem; color: var(--text-muted); }
+.streak-warn { font-size: 0.72rem; color: #FFB300; margin-top: 2px; }
+
+/* CALENDAR HEATMAP */
+.cal-card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+.cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 6px; }
+.cal-header h3 { font-size: 0.82rem; color: var(--text-secondary); font-weight: 500; }
+.cal-legend { display: flex; gap: 8px; align-items: center; }
+.cal-leg { display: flex; align-items: center; gap: 3px; font-size: 0.68rem; color: var(--text-muted); }
+.cal-leg-box { width: 9px; height: 9px; border-radius: 2px; }
+.cal-persons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 480px) { .cal-persons { grid-template-columns: 1fr; } }
+.cal-person-col { display: flex; flex-direction: column; gap: 4px; }
+.cal-person-hd { font-size: 0.7rem; font-weight: 700; margin-bottom: 1px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.cal-dow { font-size: 0.55rem; color: var(--text-muted); text-align: center; padding: 1px 0; }
+.cal-cell {
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.04);
+  font-size: 0.48rem;
+  color: var(--text-muted);
+  display: flex; align-items: center; justify-content: center;
+  cursor: default; position: relative;
+  transition: transform 0.15s;
+  min-width: 0;
+}
+.cal-cell:hover { transform: scale(1.35); z-index: 5; }
+.cal-cell.has-data { cursor: pointer; }
+.cal-cell.empty { background: none; pointer-events: none; }
+.cal-cell.i1 { background: rgba(255,165,0,0.25); color: rgba(255,165,0,0.8); }
+.cal-cell.i2 { background: rgba(255,165,0,0.55); color: rgba(255,255,255,0.9); }
+.cal-cell.i3 { background: rgba(255,200,0,0.85); color: #000; font-weight: 700; }
+.cal-cell.today { outline: 2px solid rgba(255,255,255,0.5); outline-offset: 1px; }
+.cal-cell.today.i0 { outline-color: rgba(255,255,255,0.3); }
+
+/* CALENDAR TOOLTIP */
+#calTooltip {
+  position: fixed;
+  z-index: 999;
+  background: rgba(14,14,24,0.96);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 11px;
+  padding: 10px 14px;
+  min-width: 155px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.17s ease, transform 0.17s ease;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 10px 36px rgba(0,0,0,0.65);
+}
+#calTooltip.visible { opacity: 1; transform: translateY(0); }
+.cal-tip-date { font-size: 0.8rem; font-weight: 700; color: var(--text-primary); margin-bottom: 7px; }
+.cal-tip-row { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 2px; }
+.cal-tip-svc { font-size: 0.72rem; color: var(--text-secondary); white-space: nowrap; }
+.cal-tip-right { text-align: right; }
+.cal-tip-amt { font-size: 0.75rem; font-weight: 700; color: var(--text-primary); }
+.cal-tip-del { font-size: 0.65rem; color: var(--text-muted); }
+.cal-tip-sep { border: none; border-top: 1px solid var(--border); margin: 6px 0 5px; }
+.cal-tip-total { display: flex; justify-content: space-between; }
+.cal-tip-total-label { font-size: 0.72rem; color: var(--text-secondary); }
+.cal-tip-total-amt { font-size: 0.82rem; font-weight: 800; color: var(--accent); }
+
+/* CHARTS */
+.charts-row {
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+@media (max-width: 700px) { .charts-row { grid-template-columns: 1fr; } }
+
+.chart-card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+}
+.chart-card h3 { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 14px; font-weight: 500; letter-spacing: 0.3px; }
+.chart-scroll { overflow-x: auto; }
+.chart-wrap { position: relative; height: 280px; min-width: 600px; }
+.chart-wrap-pie { position: relative; height: 280px; }
+
+/* FORM */
+.form-wrap { max-width: 560px; margin: 0 auto; }
+.form-card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 26px;
+  border: 1px solid var(--border);
+}
+.form-card h2 { font-size: 1rem; margin-bottom: 20px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 480px) { .form-grid { grid-template-columns: 1fr; } }
+.fg { display: flex; flex-direction: column; gap: 5px; }
+.fg.full { grid-column: 1 / -1; }
+.fg label { font-size: 0.78rem; color: var(--text-secondary); font-weight: 500; }
+.fg input, .fg select {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+  -webkit-appearance: none;
+}
+.fg input:focus, .fg select:focus { outline: none; border-color: var(--accent); }
+.fg select option { background: var(--bg-secondary); }
+
+.rocket-tip {
+  background: rgba(74,144,226,0.1);
+  border: 1px solid rgba(74,144,226,0.25);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  font-size: 0.78rem;
+  color: #79b5f5;
+  line-height: 1.5;
+}
+
+.btn {
+  padding: 12px 22px; border-radius: var(--radius-sm);
+  border: none; cursor: pointer; font-size: 0.9rem; font-weight: 700;
+  transition: all 0.2s;
+}
+.btn-primary {
+  background: linear-gradient(135deg, #FFD700, #FF8C00);
+  color: #000; width: 100%; margin-top: 6px;
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(255,200,0,0.3); }
+.btn-outline {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+.btn-outline:hover { border-color: var(--text-secondary); background: rgba(255,255,255,0.04); }
+.btn-del {
+  background: none; border: 1px solid rgba(255,68,68,0.4);
+  color: #ff6060; padding: 4px 10px; font-size: 0.75rem; border-radius: 6px;
+}
+.btn-del:hover { background: rgba(255,68,68,0.1); }
+
+/* TABLE */
+.tbl-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 14px; flex-wrap: wrap; gap: 10px;
+}
+.tbl-header h2 { font-size: 0.9rem; color: var(--text-secondary); font-weight: 500; }
+.filter-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.filter-row select {
+  background: var(--bg-card); border: 1px solid var(--border);
+  color: var(--text-primary); padding: 6px 10px;
+  border-radius: var(--radius-sm); font-size: 0.8rem;
+  -webkit-appearance: none; cursor: pointer;
+}
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.87rem; }
+th { text-align: left; padding: 9px 12px; color: var(--text-muted); font-weight: 500; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+td { padding: 11px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+tr:hover td { background: rgba(255,255,255,0.02); }
+.tag { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; }
+.p-self { color: var(--self-col); font-weight: 600; }
+.p-wife { color: var(--wife-col); font-weight: 600; }
+.amt-cell { font-weight: 800; }
+
+/* EXPORT */
+.exp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.exp-card {
+  background: var(--bg-card); border-radius: var(--radius);
+  padding: 22px; border: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.exp-card h3 { font-size: 0.95rem; display: flex; align-items: center; gap: 7px; }
+.exp-card p { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5; }
+.exp-btns { display: flex; flex-direction: column; gap: 7px; margin-top: auto; }
+
+.yearly-section { background: var(--bg-card); border-radius: var(--radius); padding: 20px; border: 1px solid var(--border); }
+.yearly-section h3 { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 14px; font-weight: 500; }
+
+/* TOAST */
+.toast {
+  position: fixed; bottom: 20px; right: 20px;
+  background: #06C167; color: #fff;
+  padding: 11px 18px; border-radius: var(--radius-sm);
+  font-size: 0.875rem; font-weight: 600;
+  z-index: 9999; box-shadow: var(--shadow);
+  transform: translateY(80px); opacity: 0;
+  transition: all 0.3s cubic-bezier(.34,1.56,.64,1);
+  pointer-events: none;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+
+/* EMPTY */
+.empty { text-align: center; padding: 50px 20px; color: var(--text-muted); }
+.empty .ei { font-size: 2.5rem; margin-bottom: 10px; }
+.empty p { font-size: 0.85rem; }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg-secondary); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* PRINT */
+@media print {
+  .header, .tabs, .tab-btn, .btn, .btn-del, .filter-row { display: none !important; }
+  .tab-panel { display: block !important; }
+  body { background: #fff; color: #000; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-brand">
+    <!-- 自分：FELTペールミントグリーン ロードバイク、黒四角BAG -->
+    <svg class="bike-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 64" width="64" height="42">
+      <!-- 黒デリバリーBAG（リア） -->
+      <rect x="2" y="24" width="16" height="14" rx="2" fill="#1c1c1c" stroke="#404040" stroke-width="0.9"/>
+      <line x1="2" y1="31" x2="18" y2="31" stroke="#404040" stroke-width="0.7"/>
+      <rect x="6" y="22" width="7" height="3" rx="1" fill="#282828"/>
+      <!-- 後輪 -->
+      <circle cx="21" cy="47" r="14" fill="none" stroke="#AADFC6" stroke-width="2.2"/>
+      <circle cx="21" cy="47" r="2.2" fill="#AADFC6"/>
+      <line x1="21" y1="33" x2="21" y2="61" stroke="#AADFC6" stroke-width="0.6" opacity="0.45"/>
+      <line x1="7"  y1="47" x2="35" y2="47" stroke="#AADFC6" stroke-width="0.6" opacity="0.45"/>
+      <line x1="11" y1="37" x2="31" y2="57" stroke="#AADFC6" stroke-width="0.6" opacity="0.35"/>
+      <line x1="31" y1="37" x2="11" y2="57" stroke="#AADFC6" stroke-width="0.6" opacity="0.35"/>
+      <!-- 前輪 -->
+      <circle cx="78" cy="47" r="14" fill="none" stroke="#AADFC6" stroke-width="2.2"/>
+      <circle cx="78" cy="47" r="2.2" fill="#AADFC6"/>
+      <line x1="78" y1="33" x2="78" y2="61" stroke="#AADFC6" stroke-width="0.6" opacity="0.45"/>
+      <line x1="64" y1="47" x2="92" y2="47" stroke="#AADFC6" stroke-width="0.6" opacity="0.45"/>
+      <line x1="68" y1="37" x2="88" y2="57" stroke="#AADFC6" stroke-width="0.6" opacity="0.35"/>
+      <line x1="88" y1="37" x2="68" y2="57" stroke="#AADFC6" stroke-width="0.6" opacity="0.35"/>
+      <!-- フレーム（ロードバイク：細身・低重心） -->
+      <line x1="47" y1="47" x2="21" y2="47" stroke="#AADFC6" stroke-width="2.2"/>
+      <line x1="47" y1="47" x2="45" y2="20" stroke="#AADFC6" stroke-width="2.2"/>
+      <line x1="45" y1="20" x2="70" y2="29" stroke="#AADFC6" stroke-width="2.2"/>
+      <line x1="70" y1="29" x2="47" y2="47" stroke="#AADFC6" stroke-width="2.2"/>
+      <line x1="45" y1="20" x2="21" y2="47" stroke="#AADFC6" stroke-width="1.6"/>
+      <line x1="70" y1="29" x2="78" y2="47" stroke="#AADFC6" stroke-width="2"/>
+      <!-- サドル -->
+      <line x1="39" y1="18" x2="53" y2="18" stroke="#c0c0c0" stroke-width="3" stroke-linecap="round"/>
+      <!-- ドロップハンドル（ロードバイク特徴） -->
+      <path d="M70 29 C72 22 80 20 82 25 Q83 30 79 30" fill="none" stroke="#c0c0c0" stroke-width="2.1" stroke-linecap="round"/>
+      <!-- クランク -->
+      <circle cx="47" cy="47" r="3.5" fill="none" stroke="#AADFC6" stroke-width="1.8"/>
+      <line x1="41" y1="50" x2="53" y2="44" stroke="#AADFC6" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
+    <h1>フードデリバリー売上管理</h1>
+    <!-- 妻：マットブラック クロスバイク、オレンジ四角BAG（左右反転） -->
+    <svg class="bike-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 64" width="64" height="42" style="transform:scaleX(-1)">
+      <!-- オレンジデリバリーBAG（リア） -->
+      <rect x="2" y="24" width="16" height="14" rx="2" fill="#FF6B00" stroke="#C85000" stroke-width="0.9"/>
+      <line x1="2" y1="31" x2="18" y2="31" stroke="#C85000" stroke-width="0.7"/>
+      <rect x="6" y="22" width="7" height="3" rx="1" fill="#e05a00"/>
+      <!-- 後輪（やや太め＝クロスバイク） -->
+      <circle cx="21" cy="47" r="14" fill="none" stroke="#686868" stroke-width="3"/>
+      <circle cx="21" cy="47" r="2.2" fill="#686868"/>
+      <line x1="21" y1="33" x2="21" y2="61" stroke="#686868" stroke-width="0.7" opacity="0.55"/>
+      <line x1="7"  y1="47" x2="35" y2="47" stroke="#686868" stroke-width="0.7" opacity="0.55"/>
+      <line x1="11" y1="37" x2="31" y2="57" stroke="#686868" stroke-width="0.7" opacity="0.4"/>
+      <line x1="31" y1="37" x2="11" y2="57" stroke="#686868" stroke-width="0.7" opacity="0.4"/>
+      <!-- 前輪 -->
+      <circle cx="78" cy="47" r="14" fill="none" stroke="#686868" stroke-width="3"/>
+      <circle cx="78" cy="47" r="2.2" fill="#686868"/>
+      <line x1="78" y1="33" x2="78" y2="61" stroke="#686868" stroke-width="0.7" opacity="0.55"/>
+      <line x1="64" y1="47" x2="92" y2="47" stroke="#686868" stroke-width="0.7" opacity="0.55"/>
+      <line x1="68" y1="37" x2="88" y2="57" stroke="#686868" stroke-width="0.7" opacity="0.4"/>
+      <line x1="88" y1="37" x2="68" y2="57" stroke="#686868" stroke-width="0.7" opacity="0.4"/>
+      <!-- フレーム（クロスバイク：直立気味・やや太め） -->
+      <line x1="48" y1="47" x2="21" y2="47" stroke="#585858" stroke-width="2.6"/>
+      <line x1="48" y1="47" x2="48" y2="19" stroke="#585858" stroke-width="2.6"/>
+      <line x1="48" y1="19" x2="70" y2="24" stroke="#585858" stroke-width="2.6"/>
+      <line x1="70" y1="24" x2="48" y2="47" stroke="#585858" stroke-width="2.6"/>
+      <line x1="48" y1="19" x2="21" y2="47" stroke="#585858" stroke-width="1.9"/>
+      <line x1="70" y1="24" x2="78" y2="47" stroke="#585858" stroke-width="2.3"/>
+      <!-- サドル -->
+      <line x1="42" y1="17" x2="56" y2="17" stroke="#7a7a7a" stroke-width="3" stroke-linecap="round"/>
+      <!-- フラットハンドル（クロスバイク特徴：水平バー） -->
+      <line x1="70" y1="24" x2="70" y2="16" stroke="#7a7a7a" stroke-width="2.2"/>
+      <line x1="63" y1="16" x2="78" y2="16" stroke="#7a7a7a" stroke-width="3" stroke-linecap="round"/>
+      <!-- クランク -->
+      <circle cx="48" cy="47" r="3.5" fill="none" stroke="#585858" stroke-width="2"/>
+      <line x1="42" y1="50" x2="54" y2="44" stroke="#585858" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div class="month-nav">
+    <button onclick="changeMonth(-1)" title="前月">‹</button>
+    <span id="monthLabel"></span>
+    <button onclick="changeMonth(1)" title="翌月">›</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('dashboard',this)">📊 ダッシュボード</button>
+  <button class="tab-btn" onclick="switchTab('input',this)">➕ 売上入力</button>
+  <button class="tab-btn" onclick="switchTab('history',this)">📋 履歴</button>
+  <button class="tab-btn" onclick="switchTab('export',this)">💾 エクスポート</button>
+</div>
+
+<div class="content">
+
+  <!-- DASHBOARD -->
+  <div id="tab-dashboard" class="tab-panel active">
+    <div class="summary-row">
+      <div class="s-card total">
+        <div class="s-label">今月の合計売上</div>
+        <div class="s-amt" id="totalAmt">¥0</div>
+        <div class="s-sub" id="totalDel">配達 0件 · 稼働 0日</div>
+      </div>
+      <div class="s-card self">
+        <div class="s-label">自分</div>
+        <div class="s-amt" id="selfAmt">¥0</div>
+        <div class="s-sub" id="selfDel">配達 0件</div>
+      </div>
+      <div class="s-card wife">
+        <div class="s-label">妻</div>
+        <div class="s-amt" id="wifeAmt">¥0</div>
+        <div class="s-sub" id="wifeDel">配達 0件</div>
+      </div>
+    </div>
+
+    <!-- STREAK -->
+    <div class="streak-row">
+      <div class="streak-card self" id="streakSelf"></div>
+      <div class="streak-card wife" id="streakWife"></div>
+    </div>
+
+    <!-- CALENDAR HEATMAP -->
+    <div class="cal-card">
+      <div class="cal-header">
+        <h3>稼働カレンダー</h3>
+        <div class="cal-legend">
+          <div class="cal-leg"><div class="cal-leg-box" style="background:rgba(255,165,0,0.25)"></div>〜¥2k</div>
+          <div class="cal-leg"><div class="cal-leg-box" style="background:rgba(255,165,0,0.55)"></div>〜¥4k</div>
+          <div class="cal-leg"><div class="cal-leg-box" style="background:rgba(255,200,0,0.85)"></div>¥4k+</div>
+        </div>
+      </div>
+      <div class="cal-persons">
+        <div class="cal-person-col">
+          <div class="cal-person-hd p-self">自分</div>
+          <div class="cal-grid" id="calSelf"></div>
+        </div>
+        <div class="cal-person-col">
+          <div class="cal-person-hd p-wife">妻</div>
+          <div class="cal-grid" id="calWife"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="svc-row" id="svcCards"></div>
+
+    <div class="charts-row">
+      <div class="chart-card">
+        <h3>日別売上推移（自分 / 妻）</h3>
+        <div class="chart-scroll">
+          <div class="chart-wrap"><canvas id="dailyChart"></canvas></div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <h3>サービス別構成比</h3>
+        <div class="chart-wrap-pie"><canvas id="pieChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INPUT -->
+  <div id="tab-input" class="tab-panel">
+    <div class="form-wrap">
+      <div class="form-card">
+        <h2>売上を入力する</h2>
+        <div class="form-grid">
+          <div class="fg">
+            <label>日付</label>
+            <input type="date" id="iDate">
+          </div>
+          <div class="fg">
+            <label>名前</label>
+            <select id="iPerson">
+              <option value="自分">自分</option>
+              <option value="妻">妻</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>サービス</label>
+            <select id="iService" onchange="onSvcChange()">
+              <option value="Uber Eats">Uber Eats</option>
+              <option value="出前館">出前館</option>
+              <option value="menu">menu</option>
+              <option value="ロケットナウ">ロケットナウ</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>配達件数</label>
+            <input type="number" id="iDeliveries" placeholder="0" min="0">
+          </div>
+          <div class="fg full" id="rocketTip" style="display:none">
+            <div class="rocket-tip">
+              ℹ️ <strong>ロケットナウ</strong> はスクショ撮影不可のため、アプリで金額を確認して手動で入力してください。
+            </div>
+          </div>
+          <div class="fg full">
+            <label>売上金額（円）</label>
+            <input type="number" id="iAmount" placeholder="例: 3500" min="0">
+          </div>
+          <div class="fg full">
+            <label>メモ（任意）</label>
+            <input type="text" id="iNote" placeholder="例: インセンティブ含む、雨天ボーナス">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="addEntry()">追加する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div id="tab-history" class="tab-panel">
+    <div class="tbl-header">
+      <h2 id="histTitle">売上履歴</h2>
+      <div class="filter-row">
+        <select id="fPerson" onchange="renderHistory()">
+          <option value="">全員</option>
+          <option value="自分">自分</option>
+          <option value="妻">妻</option>
+        </select>
+        <select id="fService" onchange="renderHistory()">
+          <option value="">全サービス</option>
+          <option value="Uber Eats">Uber Eats</option>
+          <option value="出前館">出前館</option>
+          <option value="menu">menu</option>
+          <option value="ロケットナウ">ロケットナウ</option>
+        </select>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>日付</th><th>名前</th><th>サービス</th>
+            <th>件数</th><th>売上</th><th>メモ</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="histBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- EXPORT -->
+  <div id="tab-export" class="tab-panel">
+    <div class="exp-grid">
+      <div class="exp-card">
+        <h3>📄 CSV出力（確定申告用）</h3>
+        <p>日付・名前・サービス・件数・売上のCSVを出力。Excelや会計ソフトに直接読み込めます。</p>
+        <div class="exp-btns">
+          <button class="btn btn-outline" onclick="exportCSV('month')">今月分を出力</button>
+          <button class="btn btn-outline" onclick="exportCSV('year')">今年分を出力</button>
+          <button class="btn btn-outline" onclick="exportCSV('all')">全期間を出力</button>
+        </div>
+      </div>
+      <div class="exp-card">
+        <h3>🔄 バックアップ / 共有</h3>
+        <p>全データをJSONで保存。別のデバイスや奥様との共有・引き継ぎに使えます。</p>
+        <div class="exp-btns">
+          <button class="btn btn-outline" onclick="exportJSON()">JSONをダウンロード</button>
+        </div>
+      </div>
+      <div class="exp-card">
+        <h3>📥 データの読み込み</h3>
+        <p>以前保存したJSONを読み込みます。重複しているデータは自動でスキップされます。</p>
+        <div class="exp-btns">
+          <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
+          <button class="btn btn-outline" onclick="document.getElementById('importFile').click()">JSONを読み込む</button>
+        </div>
+      </div>
+      <div class="exp-card">
+        <h3>🖨️ 印刷・PDF</h3>
+        <p>ブラウザの印刷機能でPDF保存できます。確定申告の添付書類として使えます。</p>
+        <div class="exp-btns">
+          <button class="btn btn-outline" onclick="window.print()">印刷 / PDF保存</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="yearly-section">
+      <h3>📊 年間月次集計（<span id="yearLabel"></span>）</h3>
+      <div id="yearlyTable" class="tbl-wrap"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+<div id="calTooltip"></div>
+
+<script>
+// ── Firebase Config ──
+const firebaseConfig = {
+  apiKey: "AIzaSyBHp22vFniwMluzX8g-cnZOEfs-rOshDRo",
+  authDomain: "delivery-dashboard-24bd9.firebaseapp.com",
+  databaseURL: "https://delivery-dashboard-24bd9-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "delivery-dashboard-24bd9",
+  storageBucket: "delivery-dashboard-24bd9.firebasestorage.app",
+  messagingSenderId: "372712608873",
+  appId: "1:372712608873:web:9e962fcfd74d7bde8efef8"
+};
+
+// ── Config ──
+const SERVICES = {
+  'Uber Eats':  { color: '#06C167', bg: 'rgba(6,193,103,0.13)' },
+  '出前館':     { color: '#e60012', bg: 'rgba(230,0,18,0.13)' },
+  'menu':       { color: '#FF6B00', bg: 'rgba(255,107,0,0.13)' },
+  'ロケットナウ': { color: '#4A90E2', bg: 'rgba(74,144,226,0.13)' },
+};
+
+// ── State ──
+let entries = [];
+let curYear  = new Date().getFullYear();
+let curMonth = new Date().getMonth() + 1;
+let dailyChart = null, pieChart = null;
+let entriesRef;
+
+function save() {
+  const data = {};
+  entries.forEach(e => { data[e.id] = e; });
+  entriesRef.set(data);
+}
+function fmt(n) { return '¥' + Number(n).toLocaleString('ja-JP'); }
+function monthStr() { return `${curYear}-${String(curMonth).padStart(2,'0')}`; }
+function monthEntries() { return entries.filter(e => e.date.startsWith(monthStr())); }
+
+// ── Nav ──
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'dashboard') renderDashboard();
+  if (name === 'history')   renderHistory();
+  if (name === 'export')    renderYearly();
+}
+
+function changeMonth(d) {
+  curMonth += d;
+  if (curMonth > 12) { curMonth = 1; curYear++; }
+  if (curMonth <  1) { curMonth = 12; curYear--; }
+  updateLabel();
+  renderDashboard();
+  if (document.getElementById('tab-history').classList.contains('active')) renderHistory();
+}
+
+function updateLabel() {
+  document.getElementById('monthLabel').textContent = `${curYear}年${curMonth}月`;
+}
+
+// ── Dashboard ──
+function renderDashboard() {
+  const data = monthEntries();
+  const total = data.reduce((s,e)=>s+e.amount,0);
+  const totalD = data.reduce((s,e)=>s+e.deliveries,0);
+  const days = new Set(data.map(e=>e.date)).size;
+  const self = data.filter(e=>e.person==='自分');
+  const wife = data.filter(e=>e.person==='妻');
+
+  document.getElementById('totalAmt').textContent = fmt(total);
+  document.getElementById('totalDel').textContent  = `配達 ${totalD}件 · 稼働 ${days}日`;
+  document.getElementById('selfAmt').textContent   = fmt(self.reduce((s,e)=>s+e.amount,0));
+  document.getElementById('selfDel').textContent   = `配達 ${self.reduce((s,e)=>s+e.deliveries,0)}件`;
+  document.getElementById('wifeAmt').textContent   = fmt(wife.reduce((s,e)=>s+e.amount,0));
+  document.getElementById('wifeDel').textContent   = `配達 ${wife.reduce((s,e)=>s+e.deliveries,0)}件`;
+
+  // Service cards
+  const g = document.getElementById('svcCards');
+  g.innerHTML = Object.entries(SERVICES).map(([svc,cfg])=>{
+    const sd   = data.filter(e=>e.service===svc);
+    const yD   = sd.filter(e=>e.person==='自分');
+    const wD   = sd.filter(e=>e.person==='妻');
+    const yAmt = yD.reduce((s,e)=>s+e.amount,0);
+    const wAmt = wD.reduce((s,e)=>s+e.amount,0);
+    const yDel = yD.reduce((s,e)=>s+e.deliveries,0);
+    const wDel = wD.reduce((s,e)=>s+e.deliveries,0);
+    const tot  = yAmt + wAmt;
+    const totD = yDel + wDel;
+    return `<div class="svc-card" style="border-left-color:${cfg.color}">
+      <div class="svc-hd">
+        <div class="svc-dot" style="background:${cfg.color}"></div>
+        <div class="svc-name">${svc}${svc==='ロケットナウ'?' <span style="font-size:0.65rem;color:var(--text-muted)">手動</span>':''}</div>
+      </div>
+      <div class="svc-split">
+        <div class="svc-split-row">
+          <span class="svc-split-label p-self">自分</span>
+          <span class="svc-split-amt" style="color:${cfg.color}">${fmt(yAmt)}</span>
+          <span class="svc-split-del">${yDel}件</span>
+        </div>
+        <div class="svc-split-row">
+          <span class="svc-split-label p-wife">妻</span>
+          <span class="svc-split-amt" style="color:${cfg.color}">${fmt(wAmt)}</span>
+          <span class="svc-split-del">${wDel}件</span>
+        </div>
+      </div>
+      <div class="svc-total-bar">合計 ${fmt(tot)} · ${totD}件</div>
+    </div>`;
+  }).join('');
+
+  renderStreak();
+  renderCalendar(data);
+  renderCharts(data);
+}
+
+// ── Streak ──
+function calcStreak(person) {
+  const workedSet = new Set(
+    entries.filter(e => e.person === person && e.amount > 0).map(e => e.date)
+  );
+  const sorted = [...workedSet].sort().reverse();
+  if (!sorted.length) return { current: 0, longest: 0 };
+
+  let current = 0;
+  let d = new Date(sorted[0]);
+  while (workedSet.has(d.toISOString().slice(0,10))) {
+    current++;
+    d.setDate(d.getDate() - 1);
+  }
+
+  let longest = 1, run = 1;
+  for (let i = 1; i < sorted.length; i++) {
+    const gap = (new Date(sorted[i-1]) - new Date(sorted[i])) / 86400000;
+    if (gap === 1) { run++; longest = Math.max(longest, run); }
+    else run = 1;
+  }
+  longest = Math.max(longest, current);
+  return { current, longest };
+}
+
+function fireEmoji(n) {
+  if (n >= 14) return '🔥🔥🔥';
+  if (n >= 7)  return '🔥🔥';
+  if (n >= 3)  return '🔥';
+  if (n >= 1)  return '✨';
+  return '💤';
+}
+
+function renderStreak() {
+  const today = new Date().toISOString().slice(0,10);
+  ['自分','妻'].forEach(person => {
+    const id = person === '自分' ? 'streakSelf' : 'streakWife';
+    const cls = person === '自分' ? 'self' : 'wife';
+    const { current, longest } = calcStreak(person);
+
+    const daysInMonth = new Date(curYear, curMonth, 0).getDate();
+    const workedThisMonth = new Set(
+      entries.filter(e => e.person === person && e.date.startsWith(monthStr()) && e.amount > 0)
+             .map(e => e.date)
+    ).size;
+    const rate = Math.round(workedThisMonth / daysInMonth * 100);
+
+    const todayWorked = entries.some(e => e.person === person && e.date === today && e.amount > 0);
+    const warn = !todayWorked && today.startsWith(monthStr())
+      ? `<div class="streak-warn">⚠ 今日まだ未稼働</div>` : '';
+
+    document.getElementById(id).innerHTML = `
+      <div class="streak-fire">${fireEmoji(current)}</div>
+      <div class="streak-info">
+        <div class="streak-person ${cls === 'self' ? 'p-self' : 'p-wife'}">${person}</div>
+        <div class="streak-num ${cls}">${current}日連続</div>
+        <div class="streak-longest">最長 ${longest}日${warn}</div>
+      </div>
+      <div class="streak-right">
+        <div class="streak-pct ${cls}">${rate}%</div>
+        <div class="streak-pct-label">稼働率<br>${workedThisMonth}/${daysInMonth}日</div>
+      </div>`;
+  });
+}
+
+function renderCalendar(data) {
+  const today = new Date().toISOString().slice(0,10);
+  const daysInMonth = new Date(curYear, curMonth, 0).getDate();
+  const firstDow = new Date(curYear, curMonth-1, 1).getDay();
+  const ms = monthStr();
+  const DOW = ['日','月','火','水','木','金','土'];
+
+  ['自分','妻'].forEach(person => {
+    const id = person === '自分' ? 'calSelf' : 'calWife';
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    let html = DOW.map(d => `<div class="cal-dow">${d}</div>`).join('');
+    for (let i = 0; i < firstDow; i++) html += '<div class="cal-cell empty"></div>';
+    for (let d = 1; d <= daysInMonth; d++) {
+      const ds = `${ms}-${String(d).padStart(2,'0')}`;
+      const amt = data.filter(e => e.date === ds && e.person === person)
+                      .reduce((s,e) => s + e.amount, 0);
+      const intensity = amt === 0 ? 'i0' : amt <= 2000 ? 'i1' : amt <= 4000 ? 'i2' : 'i3';
+      const isToday = ds === today ? ' today' : '';
+      const hasData = amt > 0 ? ' has-data' : '';
+      html += `<div class="cal-cell ${intensity}${isToday}${hasData}" data-ds="${ds}" data-person="${person}">${d}</div>`;
+    }
+    el.innerHTML = html;
+  });
+  initCalTooltip();
+}
+
+function initCalTooltip() {
+  const tip = document.getElementById('calTooltip');
+  let hideTimer = null;
+
+  document.querySelectorAll('.cal-cell.has-data').forEach(cell => {
+    cell.addEventListener('mouseenter', e => {
+      clearTimeout(hideTimer);
+      showCalTip(cell, e.clientX, e.clientY);
+    });
+    cell.addEventListener('mousemove', e => positionCalTip(tip, e.clientX, e.clientY));
+    cell.addEventListener('mouseleave', () => {
+      hideTimer = setTimeout(() => tip.classList.remove('visible'), 80);
+    });
+    cell.addEventListener('touchstart', e => {
+      e.preventDefault();
+      const already = tip.classList.contains('visible') && tip.dataset.ds === cell.dataset.ds;
+      tip.classList.remove('visible');
+      if (!already) {
+        const r = cell.getBoundingClientRect();
+        showCalTip(cell, r.left + r.width / 2, r.top);
+      }
+    }, { passive: false });
+  });
+
+  document.addEventListener('touchstart', e => {
+    if (!e.target.closest('.cal-cell')) tip.classList.remove('visible');
+  });
+}
+
+function showCalTip(cell, cx, cy) {
+  const tip = document.getElementById('calTooltip');
+  const ds = cell.dataset.ds;
+  const person = cell.dataset.person;
+  const dayData = entries.filter(e => e.date === ds && e.person === person);
+  const total = dayData.reduce((s, e) => s + e.amount, 0);
+  if (total === 0) return;
+
+  const dow = ['日','月','火','水','木','金','土'][new Date(ds + 'T00:00:00').getDay()];
+  const m = parseInt(ds.slice(5, 7));
+  const d = parseInt(ds.slice(8, 10));
+
+  const rows = Object.entries(SERVICES).map(([svc]) => {
+    const sd = dayData.filter(e => e.service === svc);
+    if (!sd.length) return '';
+    const amt = sd.reduce((s, e) => s + e.amount, 0);
+    const del = sd.reduce((s, e) => s + (e.deliveries || 0), 0);
+    const col = SERVICES[svc].color;
+    return `<div class="cal-tip-row">
+      <span class="cal-tip-svc"><span style="color:${col}">●</span> ${svc}</span>
+      <span class="cal-tip-right"><span class="cal-tip-amt">${fmt(amt)}</span><br><span class="cal-tip-del">${del}件</span></span>
+    </div>`;
+  }).join('');
+
+  tip.innerHTML = `<div class="cal-tip-date">${m}月${d}日（${dow}）</div>${rows}<hr class="cal-tip-sep"><div class="cal-tip-total"><span class="cal-tip-total-label">合計</span><span class="cal-tip-total-amt">${fmt(total)}</span></div>`;
+  tip.dataset.ds = ds;
+  positionCalTip(tip, cx, cy);
+  tip.classList.add('visible');
+}
+
+function positionCalTip(tip, cx, cy) {
+  const tw = tip.offsetWidth || 160;
+  const th = tip.offsetHeight || 110;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  let left = cx + 14;
+  let top  = cy - th - 12;
+  if (left + tw > vw - 8) left = cx - tw - 14;
+  if (top < 8) top = cy + 22;
+  tip.style.left = left + 'px';
+  tip.style.top  = top  + 'px';
+}
+
+// ── Charts ──
+function renderCharts(data) {
+  const days = new Date(curYear, curMonth, 0).getDate();
+  const labels=[], selfArr=[], wifeArr=[];
+  for (let d=1; d<=days; d++) {
+    const ds = `${monthStr()}-${String(d).padStart(2,'0')}`;
+    const dd = data.filter(e=>e.date===ds);
+    labels.push(d+'日');
+    selfArr.push(dd.filter(e=>e.person==='自分').reduce((s,e)=>s+e.amount,0));
+    wifeArr.push(dd.filter(e=>e.person==='妻').reduce((s,e)=>s+e.amount,0));
+  }
+
+  const gridColor = 'rgba(255,255,255,0.05)';
+  const tickColor = '#666';
+  const maxVal = Math.max(...selfArr, ...wifeArr, 1000);
+
+  if (dailyChart) dailyChart.destroy();
+  dailyChart = new Chart(document.getElementById('dailyChart'), {
+    type: 'bar',
+    plugins: [ChartDataLabels],
+    data: {
+      labels,
+      datasets: [
+        {
+          label:'自分', data:selfArr,
+          backgroundColor:'rgba(124,107,255,0.72)', borderRadius:4, borderSkipped:false,
+          barPercentage:0.42, categoryPercentage:0.85,
+          datalabels:{
+            color:'rgba(180,170,255,0.95)', anchor:'end', align:'top',
+            formatter: v => v > 0 ? (v>=1000?(v/1000).toFixed(1)+'k':v) : '',
+            font:{ size:9, weight:'600' }, padding:{ bottom:2 },
+            display: ctx => ctx.dataset.data[ctx.dataIndex] > 0,
+          }
+        },
+        {
+          label:'妻', data:wifeArr,
+          backgroundColor:'rgba(255,107,157,0.72)', borderRadius:4, borderSkipped:false,
+          barPercentage:0.42, categoryPercentage:0.85,
+          datalabels:{
+            color:'rgba(255,160,200,0.95)', anchor:'end', align:'top',
+            formatter: v => v > 0 ? (v>=1000?(v/1000).toFixed(1)+'k':v) : '',
+            font:{ size:9, weight:'600' }, padding:{ bottom:2 },
+            display: ctx => ctx.dataset.data[ctx.dataIndex] > 0,
+          }
+        },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      layout:{ padding:{ top:22 } },
+      plugins:{
+        legend:{ labels:{ color:'#aaa', boxWidth:12, font:{size:11} } },
+        datalabels:{ clip:false }
+      },
+      scales:{
+        x:{ ticks:{ color:tickColor, font:{size:10}, maxRotation:0 }, grid:{ color:gridColor } },
+        y:{
+          suggestedMax: maxVal * 1.28,
+          ticks:{ color:tickColor, callback:v=>'¥'+v.toLocaleString(), font:{size:10} },
+          grid:{ color:gridColor }
+        }
+      }
+    }
+  });
+
+  const svcTotals = Object.keys(SERVICES).map(s=>data.filter(e=>e.service===s).reduce((sum,e)=>sum+e.amount,0));
+  if (pieChart) pieChart.destroy();
+  pieChart = new Chart(document.getElementById('pieChart'), {
+    type: 'doughnut',
+    plugins: [ChartDataLabels],
+    data: {
+      labels: Object.keys(SERVICES),
+      datasets:[{ data:svcTotals, backgroundColor:Object.values(SERVICES).map(s=>s.color), borderWidth:2, borderColor:'#1e1e28' }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ position:'bottom', labels:{ color:'#999', boxWidth:11, padding:8, font:{size:10} } },
+        datalabels:{
+          color:'#fff', font:{ size:10, weight:'700' },
+          formatter:(v,ctx) => {
+            const total = ctx.dataset.data.reduce((s,n)=>s+n,0);
+            return v > 0 ? Math.round(v/total*100)+'%' : '';
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── Input ──
+function onSvcChange() {
+  document.getElementById('rocketTip').style.display =
+    document.getElementById('iService').value === 'ロケットナウ' ? 'block' : 'none';
+}
+
+function addEntry() {
+  const date       = document.getElementById('iDate').value;
+  const person     = document.getElementById('iPerson').value;
+  const service    = document.getElementById('iService').value;
+  const deliveries = parseInt(document.getElementById('iDeliveries').value) || 0;
+  const amount     = parseInt(document.getElementById('iAmount').value) || 0;
+  const note       = document.getElementById('iNote').value.trim();
+
+  if (!date)    { toast('日付を入力してください', true); return; }
+  if (!amount)  { toast('売上金額を入力してください', true); return; }
+
+  const entry = { id: `${Date.now()}_${Math.random().toString(36).slice(2)}`, date, person, service, amount, deliveries, note };
+  entries.push(entry);
+  entriesRef.child(entry.id).set(entry);
+
+  document.getElementById('iAmount').value = '';
+  document.getElementById('iDeliveries').value = '';
+  document.getElementById('iNote').value = '';
+  toast(`${service}（${person}）${fmt(amount)} を追加しました ✓`);
+}
+
+// ── History ──
+function renderHistory() {
+  const fp = document.getElementById('fPerson').value;
+  const fs = document.getElementById('fService').value;
+
+  let data = entries.filter(e => e.date.startsWith(monthStr()));
+  if (fp) data = data.filter(e=>e.person===fp);
+  if (fs) data = data.filter(e=>e.service===fs);
+  data.sort((a,b)=>b.date.localeCompare(a.date));
+
+  const total = data.reduce((s,e)=>s+e.amount,0);
+  document.getElementById('histTitle').textContent = `売上履歴 — ${curYear}年${curMonth}月 合計 ${fmt(total)}`;
+
+  const tbody = document.getElementById('histBody');
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><div class="ei">📭</div><p>この月のデータがありません<br>「売上入力」タブから追加できます</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.map(e => {
+    const cfg = SERVICES[e.service] || { color:'#888', bg:'rgba(136,136,136,0.13)' };
+    return `<tr>
+      <td>${e.date}</td>
+      <td class="${e.person==='自分'?'p-self':'p-wife'}">${e.person}</td>
+      <td><span class="tag" style="background:${cfg.bg};color:${cfg.color}">${e.service}</span></td>
+      <td>${e.deliveries}件</td>
+      <td class="amt-cell">${fmt(e.amount)}</td>
+      <td style="color:var(--text-muted);font-size:0.78rem">${e.note||''}</td>
+      <td><button class="btn btn-del" onclick="delEntry('${e.id}')">削除</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function delEntry(id) {
+  if (!confirm('このデータを削除しますか？')) return;
+  entries = entries.filter(e=>e.id!==id);
+  entriesRef.child(id).remove();
+  renderHistory();
+  toast('削除しました');
+}
+
+// ── Export ──
+function exportCSV(mode) {
+  let data;
+  if (mode === 'month') data = monthEntries();
+  else if (mode === 'year') data = entries.filter(e=>e.date.startsWith(curYear+''));
+  else data = [...entries];
+  data.sort((a,b)=>a.date.localeCompare(b.date));
+
+  const bom = '﻿';
+  const hdr = '日付,名前,サービス,配達件数,売上金額（円）,メモ\n';
+  const rows = data.map(e=>`${e.date},${e.person},${e.service},${e.deliveries},${e.amount},${e.note||''}`).join('\n');
+  const blob = new Blob([bom+hdr+rows], {type:'text/csv;charset=utf-8'});
+  const fn = mode==='month'
+    ? `delivery_${curYear}${String(curMonth).padStart(2,'0')}.csv`
+    : mode==='year' ? `delivery_${curYear}.csv` : 'delivery_all.csv';
+  dlBlob(blob, fn);
+  toast('CSVを出力しました');
+}
+
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(entries,null,2)],{type:'application/json'});
+  dlBlob(blob, `delivery_backup_${new Date().toISOString().slice(0,10)}.json`);
+  toast('JSONをダウンロードしました');
+}
+
+function importJSON(ev) {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!Array.isArray(imported)) throw 0;
+      const ids = new Set(entries.map(e=>e.id));
+      const added = imported.filter(e=>!ids.has(e.id));
+      entries = [...entries, ...added];
+      const updates = {};
+      added.forEach(e => { updates[e.id] = e; });
+      entriesRef.update(updates);
+      renderDashboard();
+      toast(`${added.length}件のデータを読み込みました`);
+    } catch { toast('読み込みに失敗しました', true); }
+  };
+  reader.readAsText(file);
+  ev.target.value = '';
+}
+
+function renderYearly() {
+  document.getElementById('yearLabel').textContent = curYear + '年';
+  const svcKeys = Object.keys(SERVICES);
+  const rows = [];
+  for (let m=1; m<=12; m++) {
+    const prefix = `${curYear}-${String(m).padStart(2,'0')}`;
+    const md = entries.filter(e=>e.date.startsWith(prefix));
+    const total = md.reduce((s,e)=>s+e.amount,0);
+    rows.push({ m, md, total,
+      self: md.filter(e=>e.person==='自分').reduce((s,e)=>s+e.amount,0),
+      wife: md.filter(e=>e.person==='妻').reduce((s,e)=>s+e.amount,0),
+    });
+  }
+  const yearTotal = rows.reduce((s,r)=>s+r.total,0);
+  const hasData = rows.some(r=>r.total>0);
+
+  let html = `<table>
+    <thead><tr><th>月</th>${svcKeys.map(s=>`<th>${s}</th>`).join('')}<th style="color:var(--self-col)">自分</th><th style="color:var(--wife-col)">妻</th><th>月計</th></tr></thead>
+    <tbody>`;
+  rows.forEach(r => {
+    if (!r.total && !hasData) return;
+    html += `<tr>
+      <td>${r.m}月</td>
+      ${svcKeys.map(s=>{
+        const v=r.md.filter(e=>e.service===s).reduce((sum,e)=>sum+e.amount,0);
+        const cfg=SERVICES[s];
+        return `<td style="color:${v?cfg.color:'var(--text-muted)'}">${v?fmt(v):'-'}</td>`;
+      }).join('')}
+      <td style="color:var(--self-col)">${r.self?fmt(r.self):'-'}</td>
+      <td style="color:var(--wife-col)">${r.wife?fmt(r.wife):'-'}</td>
+      <td style="font-weight:800">${r.total?fmt(r.total):'-'}</td>
+    </tr>`;
+  });
+  html += `<tr style="border-top:2px solid var(--border)">
+    <td style="font-weight:700">合計</td>
+    ${svcKeys.map(s=>{
+      const v=entries.filter(e=>e.date.startsWith(curYear+'')&&e.service===s).reduce((sum,e)=>sum+e.amount,0);
+      return `<td style="font-weight:700;color:${SERVICES[s].color}">${v?fmt(v):'-'}</td>`;
+    }).join('')}
+    <td style="font-weight:700;color:var(--self-col)">${fmt(rows.reduce((s,r)=>s+r.self,0))}</td>
+    <td style="font-weight:700;color:var(--wife-col)">${fmt(rows.reduce((s,r)=>s+r.wife,0))}</td>
+    <td style="font-weight:800;color:var(--accent)">${fmt(yearTotal)}</td>
+  </tr></tbody></table>`;
+
+  document.getElementById('yearlyTable').innerHTML = html;
+}
+
+function dlBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Toast ──
+let toastTimer;
+function toast(msg, err=false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = err ? '#e60012' : '#06C167';
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), 2600);
+}
+
+// ── Sample data (loaded only when localStorage is empty) ──
+const SAMPLE = [
+  // ── 自分（ゆう）── 4月 実績 合計¥87,951
+  { id:'y401m',  date:'2026-04-01', person:'自分', service:'menu',     amount:405,  deliveries:1, note:'' },
+  { id:'y401d',  date:'2026-04-01', person:'自分', service:'出前館',   amount:4854, deliveries:8, note:'' },
+  { id:'y402m',  date:'2026-04-02', person:'自分', service:'menu',     amount:405,  deliveries:1, note:'' },
+  { id:'y403d',  date:'2026-04-03', person:'自分', service:'出前館',   amount:1056, deliveries:2, note:'' },
+  { id:'y404u',  date:'2026-04-04', person:'自分', service:'Uber Eats',amount:6424, deliveries:6, note:'' },
+  { id:'y404m',  date:'2026-04-04', person:'自分', service:'menu',     amount:1319, deliveries:1, note:'' },
+  { id:'y404d',  date:'2026-04-04', person:'自分', service:'出前館',   amount:4265, deliveries:2, note:'' },
+  { id:'y405m',  date:'2026-04-05', person:'自分', service:'menu',     amount:1948, deliveries:2, note:'' },
+  { id:'y406m',  date:'2026-04-06', person:'自分', service:'menu',     amount:2004, deliveries:2, note:'' },
+  { id:'y407m',  date:'2026-04-07', person:'自分', service:'menu',     amount:100,  deliveries:0, note:'調整額' },
+  { id:'y407d',  date:'2026-04-07', person:'自分', service:'出前館',   amount:841,  deliveries:1, note:'' },
+  { id:'y408m',  date:'2026-04-08', person:'自分', service:'menu',     amount:522,  deliveries:1, note:'' },
+  { id:'y409m',  date:'2026-04-09', person:'自分', service:'menu',     amount:799,  deliveries:1, note:'' },
+  { id:'y410m',  date:'2026-04-10', person:'自分', service:'menu',     amount:1579, deliveries:1, note:'' },
+  { id:'y410d',  date:'2026-04-10', person:'自分', service:'出前館',   amount:847,  deliveries:2, note:'' },
+  { id:'y411m',  date:'2026-04-11', person:'自分', service:'menu',     amount:415,  deliveries:1, note:'' },
+  { id:'y411d',  date:'2026-04-11', person:'自分', service:'出前館',   amount:1023, deliveries:2, note:'' },
+  { id:'y412m',  date:'2026-04-12', person:'自分', service:'menu',     amount:2112, deliveries:2, note:'チップ含む' },
+  { id:'y412d',  date:'2026-04-12', person:'自分', service:'出前館',   amount:948,  deliveries:1, note:'' },
+  { id:'y413m',  date:'2026-04-13', person:'自分', service:'menu',     amount:1091, deliveries:1, note:'チップ含む' },
+  { id:'y414m',  date:'2026-04-14', person:'自分', service:'menu',     amount:615,  deliveries:1, note:'チップ含む' },
+  { id:'y414d',  date:'2026-04-14', person:'自分', service:'出前館',   amount:2245, deliveries:4, note:'' },
+  { id:'y415u',  date:'2026-04-15', person:'自分', service:'Uber Eats',amount:9759, deliveries:8, note:'クエスト¥650含む' },
+  { id:'y415d',  date:'2026-04-15', person:'自分', service:'出前館',   amount:1176, deliveries:1, note:'' },
+  { id:'y416m',  date:'2026-04-16', person:'自分', service:'menu',     amount:415,  deliveries:1, note:'' },
+  { id:'y416d',  date:'2026-04-16', person:'自分', service:'出前館',   amount:1170, deliveries:2, note:'' },
+  { id:'y417d',  date:'2026-04-17', person:'自分', service:'出前館',   amount:2855, deliveries:4, note:'' },
+  { id:'y418u',  date:'2026-04-18', person:'自分', service:'Uber Eats',amount:723,  deliveries:1, note:'' },
+  { id:'y418m',  date:'2026-04-18', person:'自分', service:'menu',     amount:520,  deliveries:1, note:'' },
+  { id:'y418d',  date:'2026-04-18', person:'自分', service:'出前館',   amount:1331, deliveries:3, note:'' },
+  { id:'y419d',  date:'2026-04-19', person:'自分', service:'出前館',   amount:2041, deliveries:3, note:'' },
+  { id:'y420d',  date:'2026-04-20', person:'自分', service:'出前館',   amount:768,  deliveries:1, note:'' },
+  { id:'y421m',  date:'2026-04-21', person:'自分', service:'menu',     amount:908,  deliveries:1, note:'' },
+  { id:'y422d',  date:'2026-04-22', person:'自分', service:'出前館',   amount:674,  deliveries:1, note:'' },
+  { id:'y423u',  date:'2026-04-23', person:'自分', service:'Uber Eats',amount:4263, deliveries:3, note:'特殊クエスト¥1000含む' },
+  { id:'y423d',  date:'2026-04-23', person:'自分', service:'出前館',   amount:7963, deliveries:7, note:'' },
+  { id:'y424d',  date:'2026-04-24', person:'自分', service:'出前館',   amount:1102, deliveries:2, note:'' },
+  { id:'y425u',  date:'2026-04-25', person:'自分', service:'Uber Eats',amount:556,  deliveries:1, note:'' },
+  { id:'y425m',  date:'2026-04-25', person:'自分', service:'menu',     amount:615,  deliveries:1, note:'' },
+  { id:'y425d',  date:'2026-04-25', person:'自分', service:'出前館',   amount:2060, deliveries:3, note:'' },
+  { id:'y426m',  date:'2026-04-26', person:'自分', service:'menu',     amount:200,  deliveries:0, note:'調整額' },
+  { id:'y426d',  date:'2026-04-26', person:'自分', service:'出前館',   amount:3176, deliveries:3, note:'' },
+  { id:'y427m',  date:'2026-04-27', person:'自分', service:'menu',     amount:815,  deliveries:1, note:'' },
+  { id:'y427d',  date:'2026-04-27', person:'自分', service:'出前館',   amount:1437, deliveries:2, note:'' },
+  { id:'y428m',  date:'2026-04-28', person:'自分', service:'menu',     amount:100,  deliveries:0, note:'調整額' },
+  { id:'y428d',  date:'2026-04-28', person:'自分', service:'出前館',   amount:2592, deliveries:3, note:'' },
+  { id:'y429d',  date:'2026-04-29', person:'自分', service:'出前館',   amount:1406, deliveries:2, note:'' },
+  { id:'y430u',  date:'2026-04-30', person:'自分', service:'Uber Eats',amount:1238, deliveries:2, note:'' },
+  { id:'y430m',  date:'2026-04-30', person:'自分', service:'menu',     amount:1430, deliveries:2, note:'' },
+  { id:'y430d',  date:'2026-04-30', person:'自分', service:'出前館',   amount:841,  deliveries:2, note:'' },
+  // ── 妻（あきよ）── 4月 実績 合計¥32,089
+  { id:'a404u', date:'2026-04-04', person:'妻', service:'Uber Eats', amount:2289, deliveries:1, note:'' },
+  { id:'a404d', date:'2026-04-04', person:'妻', service:'出前館',    amount:873,  deliveries:1, note:'' },
+  { id:'a410d', date:'2026-04-10', person:'妻', service:'出前館',    amount:1938, deliveries:2, note:'' },
+  { id:'a412d', date:'2026-04-12', person:'妻', service:'出前館',    amount:1027, deliveries:1, note:'' },
+  { id:'a413d', date:'2026-04-13', person:'妻', service:'出前館',    amount:726,  deliveries:1, note:'' },
+  { id:'a414m', date:'2026-04-14', person:'妻', service:'menu',     amount:903,  deliveries:1, note:'' },
+  { id:'a415m', date:'2026-04-15', person:'妻', service:'menu',     amount:802,  deliveries:1, note:'' },
+  { id:'a415n', date:'2026-04-15', person:'妻', service:'menu',     amount:687,  deliveries:1, note:'' },
+  { id:'a416m', date:'2026-04-16', person:'妻', service:'menu',     amount:389,  deliveries:1, note:'' },
+  { id:'a416d', date:'2026-04-16', person:'妻', service:'出前館',    amount:526,  deliveries:1, note:'' },
+  { id:'a417m', date:'2026-04-17', person:'妻', service:'menu',     amount:855,  deliveries:1, note:'' },
+  { id:'a417d', date:'2026-04-17', person:'妻', service:'出前館',    amount:478,  deliveries:1, note:'' },
+  { id:'a418d', date:'2026-04-18', person:'妻', service:'出前館',    amount:1313, deliveries:2, note:'' },
+  { id:'a419d', date:'2026-04-19', person:'妻', service:'出前館',    amount:1753, deliveries:3, note:'' },
+  { id:'a420d', date:'2026-04-20', person:'妻', service:'出前館',    amount:1754, deliveries:3, note:'' },
+  { id:'a421m', date:'2026-04-21', person:'妻', service:'menu',     amount:853,  deliveries:1, note:'' },
+  { id:'a423d', date:'2026-04-23', person:'妻', service:'出前館',    amount:3497, deliveries:3, note:'' },
+  { id:'a425d', date:'2026-04-25', person:'妻', service:'出前館',    amount:3297, deliveries:4, note:'' },
+  { id:'a426d', date:'2026-04-26', person:'妻', service:'出前館',    amount:3482, deliveries:3, note:'' },
+  { id:'a429d', date:'2026-04-29', person:'妻', service:'出前館',    amount:1209, deliveries:2, note:'' },
+  { id:'a430u', date:'2026-04-30', person:'妻', service:'Uber Eats', amount:620,  deliveries:1, note:'特殊クエスト¥300含む' },
+  { id:'a430d', date:'2026-04-30', person:'妻', service:'出前館',    amount:2818, deliveries:5, note:'' },
+  // ── 自分（ゆう）── 3月 実績 合計¥80,718
+  { id:'y301w', date:'2026-03-01', person:'自分', service:'menu',     amount:460,  deliveries:1, note:'' },
+  { id:'y301m', date:'2026-03-01', person:'自分', service:'出前館',   amount:1219, deliveries:2, note:'' },
+  { id:'y302w', date:'2026-03-02', person:'自分', service:'menu',     amount:2285, deliveries:2, note:'' },
+  { id:'y302m', date:'2026-03-02', person:'自分', service:'出前館',   amount:1906, deliveries:3, note:'' },
+  { id:'y303w', date:'2026-03-03', person:'自分', service:'menu',     amount:1895, deliveries:2, note:'雨' },
+  { id:'y303m', date:'2026-03-03', person:'自分', service:'出前館',   amount:1907, deliveries:2, note:'雨' },
+  { id:'y304w', date:'2026-03-04', person:'自分', service:'menu',     amount:798,  deliveries:1, note:'' },
+  { id:'y304m', date:'2026-03-04', person:'自分', service:'出前館',   amount:1702, deliveries:2, note:'' },
+  { id:'y305w', date:'2026-03-05', person:'自分', service:'menu',     amount:389,  deliveries:1, note:'' },
+  { id:'y305m', date:'2026-03-05', person:'自分', service:'出前館',   amount:1146, deliveries:2, note:'' },
+  { id:'y306u', date:'2026-03-06', person:'自分', service:'Uber Eats',amount:1162, deliveries:2, note:'' },
+  { id:'y306w', date:'2026-03-06', person:'自分', service:'menu',     amount:389,  deliveries:1, note:'' },
+  { id:'y306m', date:'2026-03-06', person:'自分', service:'出前館',   amount:939,  deliveries:1, note:'' },
+  { id:'y307w', date:'2026-03-07', person:'自分', service:'menu',     amount:930,  deliveries:2, note:'' },
+  { id:'y307m', date:'2026-03-07', person:'自分', service:'出前館',   amount:1359, deliveries:1, note:'' },
+  { id:'y308w', date:'2026-03-08', person:'自分', service:'menu',     amount:759,  deliveries:1, note:'' },
+  { id:'y308m', date:'2026-03-08', person:'自分', service:'出前館',   amount:1001, deliveries:1, note:'' },
+  { id:'y309w', date:'2026-03-09', person:'自分', service:'menu',     amount:1004, deliveries:2, note:'' },
+  { id:'y309m', date:'2026-03-09', person:'自分', service:'出前館',   amount:2794, deliveries:4, note:'' },
+  { id:'y310w', date:'2026-03-10', person:'自分', service:'menu',     amount:520,  deliveries:1, note:'' },
+  { id:'y310m', date:'2026-03-10', person:'自分', service:'出前館',   amount:843,  deliveries:1, note:'' },
+  { id:'y311w', date:'2026-03-11', person:'自分', service:'menu',     amount:396,  deliveries:1, note:'' },
+  { id:'y311m', date:'2026-03-11', person:'自分', service:'出前館',   amount:3033, deliveries:5, note:'' },
+  { id:'y312w', date:'2026-03-12', person:'自分', service:'menu',     amount:1033, deliveries:1, note:'' },
+  { id:'y313w', date:'2026-03-13', person:'自分', service:'menu',     amount:441,  deliveries:1, note:'' },
+  { id:'y313m', date:'2026-03-13', person:'自分', service:'出前館',   amount:711,  deliveries:1, note:'' },
+  { id:'y314w', date:'2026-03-14', person:'自分', service:'menu',     amount:426,  deliveries:1, note:'' },
+  { id:'y314m', date:'2026-03-14', person:'自分', service:'出前館',   amount:2757, deliveries:4, note:'' },
+  { id:'y315u', date:'2026-03-15', person:'自分', service:'Uber Eats',amount:1986, deliveries:2, note:'' },
+  { id:'y315w', date:'2026-03-15', person:'自分', service:'menu',     amount:825,  deliveries:1, note:'' },
+  { id:'y315m', date:'2026-03-15', person:'自分', service:'出前館',   amount:4831, deliveries:4, note:'' },
+  { id:'y316w', date:'2026-03-16', person:'自分', service:'menu',     amount:569,  deliveries:1, note:'' },
+  { id:'y316m', date:'2026-03-16', person:'自分', service:'出前館',   amount:1694, deliveries:2, note:'' },
+  { id:'y317w', date:'2026-03-17', person:'自分', service:'menu',     amount:546,  deliveries:1, note:'' },
+  { id:'y318u', date:'2026-03-18', person:'自分', service:'Uber Eats',amount:620,  deliveries:1, note:'特殊クエスト¥300含む' },
+  { id:'y318w', date:'2026-03-18', person:'自分', service:'menu',     amount:2360, deliveries:3, note:'' },
+  { id:'y318m', date:'2026-03-18', person:'自分', service:'出前館',   amount:6546, deliveries:5, note:'' },
+  { id:'y319w', date:'2026-03-19', person:'自分', service:'menu',     amount:396,  deliveries:1, note:'' },
+  { id:'y319m', date:'2026-03-19', person:'自分', service:'出前館',   amount:2383, deliveries:3, note:'' },
+  { id:'y320w', date:'2026-03-20', person:'自分', service:'menu',     amount:674,  deliveries:1, note:'' },
+  { id:'y320m', date:'2026-03-20', person:'自分', service:'出前館',   amount:1238, deliveries:1, note:'' },
+  { id:'y321w', date:'2026-03-21', person:'自分', service:'menu',     amount:650,  deliveries:1, note:'' },
+  { id:'y321m', date:'2026-03-21', person:'自分', service:'出前館',   amount:1445, deliveries:2, note:'' },
+  { id:'y322w', date:'2026-03-22', person:'自分', service:'menu',     amount:667,  deliveries:1, note:'' },
+  { id:'y322m', date:'2026-03-22', person:'自分', service:'出前館',   amount:3047, deliveries:4, note:'' },
+  { id:'y323w', date:'2026-03-23', person:'自分', service:'menu',     amount:531,  deliveries:1, note:'' },
+  { id:'y323m', date:'2026-03-23', person:'自分', service:'出前館',   amount:1665, deliveries:3, note:'' },
+  { id:'y324w', date:'2026-03-24', person:'自分', service:'menu',     amount:460,  deliveries:1, note:'' },
+  { id:'y325u', date:'2026-03-25', person:'自分', service:'Uber Eats',amount:2134, deliveries:2, note:'' },
+  { id:'y325w', date:'2026-03-25', person:'自分', service:'menu',     amount:2043, deliveries:2, note:'' },
+  { id:'y325m', date:'2026-03-25', person:'自分', service:'出前館',   amount:4345, deliveries:3, note:'' },
+  { id:'y326w', date:'2026-03-26', person:'自分', service:'menu',     amount:405,  deliveries:1, note:'' },
+  { id:'y327w', date:'2026-03-27', person:'自分', service:'menu',     amount:405,  deliveries:1, note:'' },
+  { id:'y327m', date:'2026-03-27', person:'自分', service:'出前館',   amount:1282, deliveries:2, note:'' },
+  { id:'y329w', date:'2026-03-29', person:'自分', service:'menu',     amount:567,  deliveries:1, note:'' },
+  { id:'y330w', date:'2026-03-30', person:'自分', service:'menu',     amount:-605, deliveries:0, note:'返金調整' },
+  { id:'y331w', date:'2026-03-31', person:'自分', service:'menu',     amount:1532, deliveries:2, note:'' },
+  { id:'y331m', date:'2026-03-31', person:'自分', service:'出前館',   amount:1273, deliveries:2, note:'' },
+  // ── 妻（あきよ）── 3月 実績 合計¥27,627
+  { id:'a301m', date:'2026-03-01', person:'妻', service:'出前館',   amount:1183, deliveries:2, note:'' },
+  { id:'a302w', date:'2026-03-02', person:'妻', service:'menu',     amount:966,  deliveries:1, note:'' },
+  { id:'a303w', date:'2026-03-03', person:'妻', service:'menu',     amount:1356, deliveries:1, note:'雨' },
+  { id:'a303m', date:'2026-03-03', person:'妻', service:'出前館',   amount:2267, deliveries:2, note:'雨' },
+  { id:'a304w', date:'2026-03-04', person:'妻', service:'menu',     amount:1427, deliveries:1, note:'' },
+  { id:'a305m', date:'2026-03-05', person:'妻', service:'出前館',   amount:1299, deliveries:2, note:'' },
+  { id:'a306m', date:'2026-03-06', person:'妻', service:'出前館',   amount:1416, deliveries:2, note:'' },
+  { id:'a308w', date:'2026-03-08', person:'妻', service:'menu',     amount:382,  deliveries:1, note:'' },
+  { id:'a308m', date:'2026-03-08', person:'妻', service:'出前館',   amount:1315, deliveries:2, note:'' },
+  { id:'a309w', date:'2026-03-09', person:'妻', service:'menu',     amount:382,  deliveries:1, note:'' },
+  { id:'a309m', date:'2026-03-09', person:'妻', service:'出前館',   amount:849,  deliveries:1, note:'' },
+  { id:'a310w', date:'2026-03-10', person:'妻', service:'menu',     amount:635,  deliveries:1, note:'' },
+  { id:'a310m', date:'2026-03-10', person:'妻', service:'出前館',   amount:614,  deliveries:1, note:'' },
+  { id:'a311w', date:'2026-03-11', person:'妻', service:'menu',     amount:469,  deliveries:1, note:'' },
+  { id:'a313m', date:'2026-03-13', person:'妻', service:'出前館',   amount:917,  deliveries:1, note:'' },
+  { id:'a314m', date:'2026-03-14', person:'妻', service:'出前館',   amount:1669, deliveries:2, note:'' },
+  { id:'a315w', date:'2026-03-15', person:'妻', service:'menu',     amount:1261, deliveries:1, note:'' },
+  { id:'a315m', date:'2026-03-15', person:'妻', service:'出前館',   amount:2620, deliveries:2, note:'' },
+  { id:'a316w', date:'2026-03-16', person:'妻', service:'menu',     amount:389,  deliveries:1, note:'' },
+  { id:'a316m', date:'2026-03-16', person:'妻', service:'出前館',   amount:1615, deliveries:3, note:'' },
+  { id:'a318w', date:'2026-03-18', person:'妻', service:'menu',     amount:489,  deliveries:1, note:'' },
+  { id:'a318m', date:'2026-03-18', person:'妻', service:'出前館',   amount:754,  deliveries:1, note:'' },
+  { id:'a319m', date:'2026-03-19', person:'妻', service:'出前館',   amount:752,  deliveries:1, note:'' },
+  { id:'a323w', date:'2026-03-23', person:'妻', service:'menu',     amount:389,  deliveries:1, note:'' },
+  { id:'a323m', date:'2026-03-23', person:'妻', service:'出前館',   amount:1434, deliveries:1, note:'' },
+  { id:'a327w', date:'2026-03-27', person:'妻', service:'menu',     amount:389,  deliveries:1, note:'' },
+  { id:'a328w', date:'2026-03-28', person:'妻', service:'menu',     amount:389,  deliveries:1, note:'' },
+];
+
+// ── Firebase 初期化 ──
+firebase.initializeApp(firebaseConfig);
+entriesRef = firebase.database().ref('entries');
+
+let _initialized = false;
+entriesRef.on('value', snapshot => {
+  const data = snapshot.val();
+
+  if (!data && !_initialized) {
+    _initialized = true;
+    entries = [...SAMPLE];
+    const fb = {};
+    entries.forEach(e => { fb[e.id] = e; });
+    entriesRef.set(fb);
+    curYear = 2026; curMonth = 4;
+    document.getElementById('iDate').value = new Date().toISOString().slice(0,10);
+    updateLabel();
+    renderDashboard();
+    return;
+  }
+
+  if (data) {
+    const arr = Object.values(data);
+    arr.sort((a,b) => a.date.localeCompare(b.date));
+    entries = arr;
+    if (!_initialized) {
+      _initialized = true;
+      if (entries.some(e => e.date.startsWith('2026-04'))) { curYear = 2026; curMonth = 4; }
+      document.getElementById('iDate').value = new Date().toISOString().slice(0,10);
+      updateLabel();
+    }
+    renderDashboard();
+    if (document.getElementById('tab-history').classList.contains('active')) renderHistory();
+    if (document.getElementById('tab-export').classList.contains('active')) renderYearly();
+  }
+  _initialized = true;
+});
+</script>
+</body>
+</html>

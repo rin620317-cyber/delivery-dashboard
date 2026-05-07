@@ -282,11 +282,13 @@ body {
   border-radius: var(--radius);
   padding: 18px 20px;
   border: 1px solid var(--border);
+  min-width: 0;
 }
 .chart-card h3 { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 14px; font-weight: 500; letter-spacing: 0.3px; }
 .chart-scroll { overflow-x: auto; }
 .chart-wrap { position: relative; height: 280px; min-width: 600px; }
-.chart-wrap-pie { position: relative; height: 280px; }
+.chart-wrap-pie { position: relative; height: 280px; width: 100%; }
+@media (max-width: 700px) { .chart-wrap-pie { height: 240px; } }
 
 /* FORM */
 .form-wrap { max-width: 560px; margin: 0 auto; }

@@ -1,0 +1,18 @@
+{
+  "name": "フードデリバリー売上管理",
+  "short_name": "配達記録",
+  "description": "フードデリバリーの日次売上管理ダッシュボード",
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#12122a",
+  "theme_color": "#12122a",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

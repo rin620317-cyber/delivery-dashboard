@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>フードデリバリー売上管理</title>
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon.svg">
+<link rel="manifest" href="../manifest.json">
+<link rel="apple-touch-icon" href="../icon.svg">
 <meta name="theme-color" content="#12122a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -195,16 +195,17 @@ body {
 .streak-fire { font-size: 2rem; line-height: 1; filter: drop-shadow(0 0 6px rgba(255,150,0,0.6)); }
 .streak-info { flex: 1; }
 .streak-person { font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 2px; font-weight: 600; }
+.streak-num-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .streak-num { font-size: 1.6rem; font-weight: 900; line-height: 1; }
 .streak-num.self { color: var(--self-col); }
 .streak-num.wife { color: var(--wife-col); }
-.streak-longest { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+.streak-best { font-size: 0.9rem; font-weight: 700; color: var(--text-secondary); opacity: 0.9; }
 .streak-right { text-align: right; }
 .streak-pct { font-size: 1.2rem; font-weight: 800; }
 .streak-pct.self { color: var(--self-col); }
 .streak-pct.wife { color: var(--wife-col); }
 .streak-pct-label { font-size: 0.68rem; color: var(--text-muted); }
-.streak-warn { font-size: 0.72rem; color: #FFB300; margin-top: 2px; }
+.streak-warn { font-size: 0.72rem; color: #FFB300; margin-top: 3px; }
 
 /* CALENDAR HEATMAP */
 .cal-card {
@@ -1022,12 +1023,15 @@ function renderStreak() {
       <div class="streak-fire">${fireEmoji(current)}</div>
       <div class="streak-info">
         <div class="streak-person ${cls === 'self' ? 'p-self' : 'p-wife'}">${person}</div>
-        <div class="streak-num ${cls}">${current}日連続</div>
-        <div class="streak-longest">最長 ${longest}日${warn}</div>
+        <div class="streak-num-row">
+          <span class="streak-num ${cls}">${current}日連続</span>
+          <span class="streak-best">🏆 最長&nbsp;${longest}日</span>
+        </div>
+        ${warn}
       </div>
       <div class="streak-right">
         <div class="streak-pct ${cls}">${rate}%</div>
-        <div class="streak-pct-label">稼働率<br>${workedThisMonth}/${daysInMonth}日</div>
+        <div class="streak-pct-label">今月稼働<br>${workedThisMonth}日/${daysInMonth}日中</div>
       </div>`;
   });
 }

@@ -1213,6 +1213,9 @@ function renderCharts(data) {
       }
     }
   });
+  // Chrome mobile: grid layout may not be resolved at JS-execution time;
+  // resize after the browser has completed its layout pass.
+  requestAnimationFrame(() => { if (pieChart) pieChart.resize(); });
 }
 
 // ── Input ──

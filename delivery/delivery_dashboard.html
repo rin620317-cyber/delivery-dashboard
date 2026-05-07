@@ -1128,6 +1128,7 @@ function positionCalTip(tip, cx, cy) {
 
 // ── Charts ──
 function renderCharts(data) {
+  const curSvcs = activeServices(curYear);
   const days = new Date(curYear, curMonth, 0).getDate();
   const labels=[], selfArr=[], wifeArr=[];
   for (let d=1; d<=days; d++) {

@@ -1013,10 +1013,13 @@ function renderStreak() {
       entries.filter(e => e.person === person && e.date.startsWith(monthStr()) && e.amount > 0)
              .map(e => e.date)
     ).size;
-    const rate = Math.round(workedThisMonth / daysInMonth * 100);
+    // Use elapsed days as denominator for current month; full month for past months
+    const isCurrentMonth = today.startsWith(monthStr());
+    const elapsedDays = isCurrentMonth ? parseInt(today.slice(8, 10)) : daysInMonth;
+    const rate = Math.round(workedThisMonth / elapsedDays * 100);
 
     const todayWorked = entries.some(e => e.person === person && e.date === today && e.amount > 0);
-    const warn = !todayWorked && today.startsWith(monthStr())
+    const warn = !todayWorked && isCurrentMonth
       ? `<div class="streak-warn">⚠ 今日まだ未稼働</div>` : '';
 
     document.getElementById(id).innerHTML = `
@@ -1031,7 +1034,7 @@ function renderStreak() {
       </div>
       <div class="streak-right">
         <div class="streak-pct ${cls}">${rate}%</div>
-        <div class="streak-pct-label">今月稼働<br>${workedThisMonth}日/${daysInMonth}日中</div>
+        <div class="streak-pct-label">今月稼働<br>${workedThisMonth}日/${elapsedDays}日中</div>
       </div>`;
   });
 }

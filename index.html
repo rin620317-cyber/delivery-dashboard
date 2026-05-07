@@ -21,6 +21,7 @@
   --demae: #e60012;
   --menu-col: #FF6B00;
   --rocket: #4A90E2;
+  --didi: #9C27B0;
   --accent: #FFD700;
   --self-col: #7C6BFF;
   --wife-col: #FF6B9D;
@@ -230,7 +231,8 @@ body {
 .cal-cell.empty { background: none; pointer-events: none; }
 .cal-cell.i1 { background: rgba(255,165,0,0.25); color: rgba(255,165,0,0.8); }
 .cal-cell.i2 { background: rgba(255,165,0,0.55); color: rgba(255,255,255,0.9); }
-.cal-cell.i3 { background: rgba(255,200,0,0.85); color: #000; font-weight: 700; }
+.cal-cell.i3 { background: rgba(255,200,0,0.75); color: #000; font-weight: 700; }
+.cal-cell.i4 { background: rgba(255,80,0,0.9); color: #fff; font-weight: 700; }
 .cal-cell.today { outline: 2px solid rgba(255,255,255,0.5); outline-offset: 1px; }
 .cal-cell.today.i0 { outline-color: rgba(255,255,255,0.3); }
 
@@ -401,6 +403,37 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 ::-webkit-scrollbar-track { background: var(--bg-secondary); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
+/* NAV SELECTS */
+.nav-sel {
+  background: transparent; border: none; color: #fff;
+  font-weight: 700; font-size: 0.95rem; cursor: pointer;
+  -webkit-appearance: none; padding: 0 2px; min-width: 0;
+}
+.nav-sel:focus { outline: none; }
+.nav-sel option { background: #1a1a2e; color: #fff; }
+
+/* ANNUAL TAB */
+.annual-chart-wrap { position: relative; height: 320px; margin-bottom: 20px; }
+.annual-year-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+.annual-year-nav select {
+  background: var(--bg-card); border: 1px solid var(--border);
+  color: var(--text-primary); padding: 8px 14px;
+  border-radius: 30px; font-size: 0.95rem; font-weight: 700;
+  cursor: pointer; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+  padding-right: 28px;
+}
+.annual-year-nav select:focus { outline: none; border-color: var(--accent); }
+.annual-total-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 20px; }
+.annual-total-card {
+  background: var(--bg-card); border-radius: var(--radius); padding: 16px 18px;
+  border: 1px solid var(--border); text-align: center;
+}
+.annual-total-card .atc-label { font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 6px; }
+.annual-total-card .atc-amt { font-size: 1.5rem; font-weight: 800; }
+@media (max-width: 480px) { .annual-total-row { grid-template-columns: 1fr; } }
+
 /* PRINT */
 @media print {
   .header, .tabs, .tab-btn, .btn, .btn-del, .filter-row { display: none !important; }
@@ -416,9 +449,9 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     <!-- 自分：FELTペールミントグリーン ロードバイク、黒四角BAG -->
     <svg class="bike-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 64" width="64" height="42">
       <!-- 黒デリバリーBAG（リア） -->
-      <rect x="2" y="24" width="16" height="14" rx="2" fill="#1c1c1c" stroke="#404040" stroke-width="0.9"/>
-      <line x1="2" y1="31" x2="18" y2="31" stroke="#404040" stroke-width="0.7"/>
-      <rect x="6" y="22" width="7" height="3" rx="1" fill="#282828"/>
+      <rect x="2" y="24" width="16" height="14" rx="2" fill="#F0E6C8" stroke="#C8B870" stroke-width="0.9"/>
+      <line x1="2" y1="31" x2="18" y2="31" stroke="#C8B870" stroke-width="0.7"/>
+      <rect x="6" y="22" width="7" height="3" rx="1" fill="#D4C88A"/>
       <!-- 後輪 -->
       <circle cx="21" cy="47" r="14" fill="none" stroke="#AADFC6" stroke-width="2.2"/>
       <circle cx="21" cy="47" r="2.2" fill="#AADFC6"/>
@@ -488,7 +521,15 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   </div>
   <div class="month-nav">
     <button onclick="changeMonth(-1)" title="前月">‹</button>
-    <span id="monthLabel"></span>
+    <select class="nav-sel" id="yearSel" onchange="onNavChange()" title="年を選択"></select>
+    <span style="opacity:0.5;font-size:0.85rem">年</span>
+    <select class="nav-sel" id="monthSel" onchange="onNavChange()" title="月を選択">
+      <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+      <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+      <option value="7">7</option><option value="8">8</option><option value="9">9</option>
+      <option value="10">10</option><option value="11">11</option><option value="12">12</option>
+    </select>
+    <span style="opacity:0.5;font-size:0.85rem">月</span>
     <button onclick="changeMonth(1)" title="翌月">›</button>
   </div>
 </div>
@@ -497,6 +538,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   <button class="tab-btn active" onclick="switchTab('dashboard',this)">📊 ダッシュボード</button>
   <button class="tab-btn" onclick="switchTab('input',this)">➕ 売上入力</button>
   <button class="tab-btn" onclick="switchTab('history',this)">📋 履歴</button>
+  <button class="tab-btn" onclick="switchTab('annual',this)">📅 年間</button>
   <button class="tab-btn" onclick="switchTab('export',this)">💾 エクスポート</button>
 </div>
 
@@ -535,7 +577,8 @@ tr:hover td { background: rgba(255,255,255,0.02); }
         <div class="cal-legend">
           <div class="cal-leg"><div class="cal-leg-box" style="background:rgba(255,165,0,0.25)"></div>〜¥2k</div>
           <div class="cal-leg"><div class="cal-leg-box" style="background:rgba(255,165,0,0.55)"></div>〜¥4k</div>
-          <div class="cal-leg"><div class="cal-leg-box" style="background:rgba(255,200,0,0.85)"></div>¥4k+</div>
+          <div class="cal-leg"><div class="cal-leg-box" style="background:rgba(255,200,0,0.75)"></div>〜¥10k</div>
+          <div class="cal-leg"><div class="cal-leg-box" style="background:rgba(255,80,0,0.9)"></div>¥10k+</div>
         </div>
       </div>
       <div class="cal-persons">
@@ -590,6 +633,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
               <option value="出前館">出前館</option>
               <option value="menu">menu</option>
               <option value="ロケットナウ">ロケットナウ</option>
+              <option value="DiDi">DiDi</option>
             </select>
           </div>
           <div class="fg">
@@ -620,6 +664,14 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     <div class="tbl-header">
       <h2 id="histTitle">売上履歴</h2>
       <div class="filter-row">
+        <select id="fYear" onchange="renderHistory()"></select>
+        <select id="fMonth" onchange="renderHistory()">
+          <option value="">全月</option>
+          <option value="01">1月</option><option value="02">2月</option><option value="03">3月</option>
+          <option value="04">4月</option><option value="05">5月</option><option value="06">6月</option>
+          <option value="07">7月</option><option value="08">8月</option><option value="09">9月</option>
+          <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+        </select>
         <select id="fPerson" onchange="renderHistory()">
           <option value="">全員</option>
           <option value="自分">自分</option>
@@ -631,6 +683,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
           <option value="出前館">出前館</option>
           <option value="menu">menu</option>
           <option value="ロケットナウ">ロケットナウ</option>
+          <option value="DiDi">DiDi</option>
         </select>
       </div>
     </div>
@@ -644,6 +697,35 @@ tr:hover td { background: rgba(255,255,255,0.02); }
         </thead>
         <tbody id="histBody"></tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- ANNUAL -->
+  <div id="tab-annual" class="tab-panel">
+    <div class="annual-year-nav">
+      <select id="annualYearSel" onchange="renderAnnual()"></select>
+    </div>
+    <div class="annual-total-row">
+      <div class="annual-total-card">
+        <div class="atc-label">年間合計</div>
+        <div class="atc-amt" id="annualTotal" style="color:var(--accent)">¥0</div>
+      </div>
+      <div class="annual-total-card">
+        <div class="atc-label">自分</div>
+        <div class="atc-amt" id="annualSelf" style="color:var(--self-col)">¥0</div>
+      </div>
+      <div class="annual-total-card">
+        <div class="atc-label">妻</div>
+        <div class="atc-amt" id="annualWife" style="color:var(--wife-col)">¥0</div>
+      </div>
+    </div>
+    <div class="chart-card" style="margin-bottom:20px">
+      <h3>月別売上推移</h3>
+      <div class="annual-chart-wrap"><canvas id="annualChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>月別明細</h3>
+      <div id="annualTable" class="tbl-wrap"></div>
     </div>
   </div>
 
@@ -712,13 +794,14 @@ const SERVICES = {
   '出前館':     { color: '#e60012', bg: 'rgba(230,0,18,0.13)' },
   'menu':       { color: '#FF6B00', bg: 'rgba(255,107,0,0.13)' },
   'ロケットナウ': { color: '#4A90E2', bg: 'rgba(74,144,226,0.13)' },
+  'DiDi':       { color: '#9C27B0', bg: 'rgba(156,39,176,0.13)' },
 };
 
 // ── State ──
 let entries = [];
 let curYear  = new Date().getFullYear();
 let curMonth = new Date().getMonth() + 1;
-let dailyChart = null, pieChart = null;
+let dailyChart = null, pieChart = null, annualChart = null;
 let entriesRef;
 
 function save() {
@@ -738,6 +821,7 @@ function switchTab(name, btn) {
   btn.classList.add('active');
   if (name === 'dashboard') renderDashboard();
   if (name === 'history')   renderHistory();
+  if (name === 'annual')    renderAnnual();
   if (name === 'export')    renderYearly();
 }
 
@@ -751,7 +835,32 @@ function changeMonth(d) {
 }
 
 function updateLabel() {
-  document.getElementById('monthLabel').textContent = `${curYear}年${curMonth}月`;
+  const ySel = document.getElementById('yearSel');
+  if (ySel) ySel.value = curYear;
+  const mSel = document.getElementById('monthSel');
+  if (mSel) mSel.value = curMonth;
+}
+
+function onNavChange() {
+  curYear  = parseInt(document.getElementById('yearSel').value);
+  curMonth = parseInt(document.getElementById('monthSel').value);
+  renderDashboard();
+  if (document.getElementById('tab-history').classList.contains('active')) renderHistory();
+}
+
+function populateYearSelects() {
+  const years = [...new Set(entries.map(e => e.date.slice(0,4)))].sort();
+  const now = new Date().getFullYear();
+  if (!years.includes(String(now))) years.push(String(now));
+
+  ['yearSel','annualYearSel','fYear'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const cur = sel.value || (id === 'fYear' ? '' : String(curYear));
+    sel.innerHTML = (id === 'fYear' ? '<option value="">全年</option>' : '') +
+      years.map(y => `<option value="${y}">${y}年</option>`).join('');
+    if (cur) sel.value = cur;
+  });
 }
 
 // ── Dashboard ──
@@ -891,7 +1000,7 @@ function renderCalendar(data) {
       const ds = `${ms}-${String(d).padStart(2,'0')}`;
       const amt = data.filter(e => e.date === ds && e.person === person)
                       .reduce((s,e) => s + e.amount, 0);
-      const intensity = amt === 0 ? 'i0' : amt <= 2000 ? 'i1' : amt <= 4000 ? 'i2' : 'i3';
+      const intensity = amt === 0 ? 'i0' : amt <= 2000 ? 'i1' : amt <= 4000 ? 'i2' : amt <= 10000 ? 'i3' : 'i4';
       const isToday = ds === today ? ' today' : '';
       const hasData = amt > 0 ? ' has-data' : '';
       html += `<div class="cal-cell ${intensity}${isToday}${hasData}" data-ds="${ds}" data-person="${person}">${d}</div>`;
@@ -1092,16 +1201,21 @@ function addEntry() {
 
 // ── History ──
 function renderHistory() {
+  const fy = document.getElementById('fYear')?.value || '';
+  const fm = document.getElementById('fMonth')?.value || '';
   const fp = document.getElementById('fPerson').value;
   const fs = document.getElementById('fService').value;
 
-  let data = entries.filter(e => e.date.startsWith(monthStr()));
+  let data = [...entries];
+  if (fy) data = data.filter(e => e.date.startsWith(fy));
+  if (fm) data = data.filter(e => e.date.slice(5,7) === fm);
   if (fp) data = data.filter(e=>e.person===fp);
   if (fs) data = data.filter(e=>e.service===fs);
   data.sort((a,b)=>b.date.localeCompare(a.date));
 
   const total = data.reduce((s,e)=>s+e.amount,0);
-  document.getElementById('histTitle').textContent = `売上履歴 — ${curYear}年${curMonth}月 合計 ${fmt(total)}`;
+  const periodLabel = fy ? (fm ? `${fy}年${parseInt(fm)}月` : `${fy}年`) : (fm ? `${parseInt(fm)}月` : '全期間');
+  document.getElementById('histTitle').textContent = `売上履歴 — ${periodLabel} 合計 ${fmt(total)}`;
 
   const tbody = document.getElementById('histBody');
   if (!data.length) {
@@ -1222,6 +1336,118 @@ function renderYearly() {
   </tr></tbody></table>`;
 
   document.getElementById('yearlyTable').innerHTML = html;
+}
+
+function renderAnnual() {
+  populateYearSelects();
+  const sel = document.getElementById('annualYearSel');
+  if (!sel) return;
+  if (!sel.value) sel.value = curYear;
+  const y = parseInt(sel.value);
+  const svcKeys = Object.keys(SERVICES);
+
+  const yearData = entries.filter(e => e.date.startsWith(y + ''));
+  const yTotal = yearData.reduce((s,e)=>s+e.amount,0);
+  const ySelf  = yearData.filter(e=>e.person==='自分').reduce((s,e)=>s+e.amount,0);
+  const yWife  = yearData.filter(e=>e.person==='妻').reduce((s,e)=>s+e.amount,0);
+
+  document.getElementById('annualTotal').textContent = fmt(yTotal);
+  document.getElementById('annualSelf').textContent  = fmt(ySelf);
+  document.getElementById('annualWife').textContent  = fmt(yWife);
+
+  // Monthly chart
+  const labels=[], selfArr=[], wifeArr=[];
+  for (let m=1; m<=12; m++) {
+    const prefix = `${y}-${String(m).padStart(2,'0')}`;
+    const md = yearData.filter(e=>e.date.startsWith(prefix));
+    labels.push(`${m}月`);
+    selfArr.push(md.filter(e=>e.person==='自分').reduce((s,e)=>s+e.amount,0));
+    wifeArr.push(md.filter(e=>e.person==='妻').reduce((s,e)=>s+e.amount,0));
+  }
+
+  if (annualChart) annualChart.destroy();
+  annualChart = new Chart(document.getElementById('annualChart'), {
+    type: 'bar',
+    plugins: [ChartDataLabels],
+    data: {
+      labels,
+      datasets: [
+        {
+          label:'自分', data:selfArr,
+          backgroundColor:'rgba(124,107,255,0.75)', borderRadius:5, borderSkipped:false,
+          datalabels:{
+            color:'rgba(180,170,255,0.95)', anchor:'end', align:'top',
+            formatter: v => v > 0 ? '¥'+(v/1000).toFixed(0)+'k' : '',
+            font:{ size:9, weight:'600' },
+            display: ctx => ctx.dataset.data[ctx.dataIndex] > 0,
+          }
+        },
+        {
+          label:'妻', data:wifeArr,
+          backgroundColor:'rgba(255,107,157,0.75)', borderRadius:5, borderSkipped:false,
+          datalabels:{
+            color:'rgba(255,160,200,0.95)', anchor:'end', align:'top',
+            formatter: v => v > 0 ? '¥'+(v/1000).toFixed(0)+'k' : '',
+            font:{ size:9, weight:'600' },
+            display: ctx => ctx.dataset.data[ctx.dataIndex] > 0,
+          }
+        },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      layout:{ padding:{ top:28 } },
+      plugins:{
+        legend:{ labels:{ color:'#aaa', boxWidth:12, font:{size:11} } },
+        datalabels:{ clip:false }
+      },
+      scales:{
+        x:{ stacked:false, ticks:{ color:'#666', font:{size:11} }, grid:{ color:'rgba(255,255,255,0.05)' } },
+        y:{
+          ticks:{ color:'#666', callback:v=>'¥'+v.toLocaleString(), font:{size:10} },
+          grid:{ color:'rgba(255,255,255,0.05)' }
+        }
+      }
+    }
+  });
+
+  // Monthly table
+  const rows = [];
+  for (let m=1; m<=12; m++) {
+    const prefix = `${y}-${String(m).padStart(2,'0')}`;
+    const md = yearData.filter(e=>e.date.startsWith(prefix));
+    rows.push({ m, md, total:md.reduce((s,e)=>s+e.amount,0),
+      self:md.filter(e=>e.person==='自分').reduce((s,e)=>s+e.amount,0),
+      wife:md.filter(e=>e.person==='妻').reduce((s,e)=>s+e.amount,0) });
+  }
+
+  let html = `<table>
+    <thead><tr><th>月</th>${svcKeys.map(s=>`<th>${s}</th>`).join('')}<th style="color:var(--self-col)">自分</th><th style="color:var(--wife-col)">妻</th><th>月計</th></tr></thead>
+    <tbody>`;
+  rows.forEach(r => {
+    html += `<tr>
+      <td>${r.m}月</td>
+      ${svcKeys.map(s=>{
+        const v=r.md.filter(e=>e.service===s).reduce((sum,e)=>sum+e.amount,0);
+        const cfg=SERVICES[s];
+        return `<td style="color:${v?cfg.color:'var(--text-muted)'}">${v?fmt(v):'-'}</td>`;
+      }).join('')}
+      <td style="color:var(--self-col)">${r.self?fmt(r.self):'-'}</td>
+      <td style="color:var(--wife-col)">${r.wife?fmt(r.wife):'-'}</td>
+      <td style="font-weight:800">${r.total?fmt(r.total):'-'}</td>
+    </tr>`;
+  });
+  html += `<tr style="border-top:2px solid var(--border)">
+    <td style="font-weight:700">合計</td>
+    ${svcKeys.map(s=>{
+      const v=yearData.filter(e=>e.service===s).reduce((sum,e)=>sum+e.amount,0);
+      return `<td style="font-weight:700;color:${SERVICES[s].color}">${v?fmt(v):'-'}</td>`;
+    }).join('')}
+    <td style="font-weight:700;color:var(--self-col)">${fmt(ySelf)}</td>
+    <td style="font-weight:700;color:var(--wife-col)">${fmt(yWife)}</td>
+    <td style="font-weight:800;color:var(--accent)">${fmt(yTotal)}</td>
+  </tr></tbody></table>`;
+  document.getElementById('annualTable').innerHTML = html;
 }
 
 function dlBlob(blob, name) {
@@ -1421,8 +1647,10 @@ entriesRef.on('value', snapshot => {
     const fb = {};
     entries.forEach(e => { fb[e.id] = e; });
     entriesRef.set(fb);
-    curYear = 2026; curMonth = 4;
-    document.getElementById('iDate').value = new Date().toISOString().slice(0,10);
+    const now = new Date();
+    curYear = now.getFullYear(); curMonth = now.getMonth() + 1;
+    document.getElementById('iDate').value = now.toISOString().slice(0,10);
+    populateYearSelects();
     updateLabel();
     renderDashboard();
     return;
@@ -1434,12 +1662,16 @@ entriesRef.on('value', snapshot => {
     entries = arr;
     if (!_initialized) {
       _initialized = true;
-      if (entries.some(e => e.date.startsWith('2026-04'))) { curYear = 2026; curMonth = 4; }
-      document.getElementById('iDate').value = new Date().toISOString().slice(0,10);
+      const now = new Date();
+      curYear = now.getFullYear();
+      curMonth = now.getMonth() + 1;
+      document.getElementById('iDate').value = now.toISOString().slice(0,10);
+      populateYearSelects();
       updateLabel();
     }
     renderDashboard();
     if (document.getElementById('tab-history').classList.contains('active')) renderHistory();
+    if (document.getElementById('tab-annual').classList.contains('active')) renderAnnual();
     if (document.getElementById('tab-export').classList.contains('active')) renderYearly();
   }
   _initialized = true;

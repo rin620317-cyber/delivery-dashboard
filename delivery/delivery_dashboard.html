@@ -275,7 +275,10 @@ body {
   gap: 14px;
   margin-bottom: 20px;
 }
-@media (max-width: 700px) { .charts-row { grid-template-columns: 1fr; } }
+@media (max-width: 700px) {
+  .charts-row { display: block; }
+  .charts-row .chart-card { margin-bottom: 14px; }
+}
 
 .chart-card {
   background: var(--bg-card);
@@ -1190,32 +1193,34 @@ function renderCharts(data) {
   });
 
   const svcTotals = Object.keys(curSvcs).map(s=>data.filter(e=>e.service===s).reduce((sum,e)=>sum+e.amount,0));
-  if (pieChart) pieChart.destroy();
-  pieChart = new Chart(document.getElementById('pieChart'), {
-    type: 'doughnut',
-    plugins: [ChartDataLabels],
-    data: {
-      labels: Object.keys(curSvcs),
-      datasets:[{ data:svcTotals, backgroundColor:Object.values(curSvcs).map(s=>s.color), borderWidth:2, borderColor:'#1e1e28' }]
-    },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      animation:{ duration:900, easing:'easeOutQuart' },
-      plugins:{
-        legend:{ position:'bottom', labels:{ color:'#999', boxWidth:11, padding:8, font:{size:10} } },
-        datalabels:{
-          color:'#fff', font:{ size:10, weight:'700' },
-          formatter:(v,ctx) => {
-            const total = ctx.dataset.data.reduce((s,n)=>s+n,0);
-            return v > 0 ? Math.round(v/total*100)+'%' : '';
+  const svcLabels = Object.keys(curSvcs);
+  const svcColors = Object.values(curSvcs).map(s=>s.color);
+  if (pieChart) { pieChart.destroy(); pieChart = null; }
+  // Defer creation so Chrome mobile finishes block layout before Chart.js reads container size.
+  setTimeout(() => {
+    pieChart = new Chart(document.getElementById('pieChart'), {
+      type: 'doughnut',
+      plugins: [ChartDataLabels],
+      data: {
+        labels: svcLabels,
+        datasets:[{ data:svcTotals, backgroundColor:svcColors, borderWidth:2, borderColor:'#1e1e28' }]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        animation:{ duration:900, easing:'easeOutQuart' },
+        plugins:{
+          legend:{ position:'bottom', labels:{ color:'#999', boxWidth:11, padding:8, font:{size:10} } },
+          datalabels:{
+            color:'#fff', font:{ size:10, weight:'700' },
+            formatter:(v,ctx) => {
+              const total = ctx.dataset.data.reduce((s,n)=>s+n,0);
+              return v > 0 ? Math.round(v/total*100)+'%' : '';
+            }
           }
         }
       }
-    }
-  });
-  // Chrome mobile: grid layout may not be resolved at JS-execution time;
-  // resize after the browser has completed its layout pass.
-  requestAnimationFrame(() => { if (pieChart) pieChart.resize(); });
+    });
+  }, 0);
 }
 
 // ── Input ──
@@ -1398,9 +1403,9 @@ function renderAnnual() {
   const ySelf  = yearData.filter(e=>e.person==='自分').reduce((s,e)=>s+e.amount,0);
   const yWife  = yearData.filter(e=>e.person==='妻').reduce((s,e)=>s+e.amount,0);
 
-  document.getElementById('annualTotal').textContent = fmt(yTotal);
-  document.getElementById('annualSelf').textContent  = fmt(ySelf);
-  document.getElementById('annualWife').textContent  = fmt(yWife);
+  countUp(document.getElementById('annualTotal'), yTotal);
+  countUp(document.getElementById('annualSelf'),  ySelf);
+  countUp(document.getElementById('annualWife'),  yWife);
 
   // Monthly chart
   const labels=[], selfArr=[], wifeArr=[];

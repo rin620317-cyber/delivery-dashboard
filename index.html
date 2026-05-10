@@ -389,6 +389,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
 /* EXPORT */
 .exp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 24px; }
+@media (max-width: 768px) { .pc-only { display: none !important; } }
 .exp-card {
   background: var(--bg-card); border-radius: var(--radius);
   padding: 22px; border: 1px solid var(--border);
@@ -802,6 +803,15 @@ tr:hover td { background: rgba(255,255,255,0.02); }
         <div class="exp-btns">
           <button class="btn btn-outline" onclick="window.print()">印刷 / PDF保存</button>
         </div>
+      </div>
+      <div class="exp-card pc-only" style="grid-column: 1 / -1">
+        <h3>📒 仕訳帳CSV（青色申告用・<span id="journalYearLabel"></span>年分）</h3>
+        <p>現金主義で計上：<code style="font-size:0.8rem;background:var(--bg-secondary);padding:2px 6px;border-radius:4px">現金 XX円 ／ 売上高 XX円</code>　売上のみ出力。経費は別途入力してください。</p>
+        <div class="exp-btns" style="flex-direction:row;flex-wrap:wrap;gap:8px;margin-top:12px">
+          <button class="btn btn-outline" onclick="exportJournal('自分')">自分の仕訳帳をダウンロード</button>
+          <button class="btn btn-outline" onclick="exportJournal('妻')">妻の仕訳帳をダウンロード</button>
+        </div>
+        <div id="journalPreview" style="margin-top:14px;font-size:0.75rem;color:var(--text-muted);display:none"></div>
       </div>
     </div>
 
@@ -1357,6 +1367,45 @@ function exportJSON() {
   toast('JSONをダウンロードしました');
 }
 
+// ── 仕訳帳CSV（青色申告用） ──
+function exportJournal(person) {
+  const year = curYear;
+  const data = entries
+    .filter(e => e.person === person && e.date.startsWith(year + '') && e.amount > 0)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (!data.length) { toast('該当データがありません'); return; }
+
+  const bom = '﻿';
+  const hdr = '伝票日付,借方科目,借方金額,貸方科目,貸方金額,摘要\n';
+  const rows = data.map(e => {
+    const memo = e.deliveries > 0
+      ? `${e.service} ${e.deliveries}件`
+      : `${e.service}（チップ等）`;
+    return `${e.date},現金,${e.amount},売上高,${e.amount},${memo}`;
+  }).join('\n');
+
+  const blob = new Blob([bom + hdr + rows], { type: 'text/csv;charset=utf-8' });
+  dlBlob(blob, `仕訳帳_${year}_${person}.csv`);
+
+  // プレビュー（最初の5件）
+  const prev = document.getElementById('journalPreview');
+  const sample = data.slice(0, 5).map(e => {
+    const memo = e.deliveries > 0 ? `${e.service} ${e.deliveries}件` : `${e.service}（チップ等）`;
+    return `${e.date}　現金 ¥${e.amount.toLocaleString()} ／ 売上高 ¥${e.amount.toLocaleString()}　${memo}`;
+  });
+  prev.innerHTML = `<strong>${person}・${year}年 計${data.length}件 合計¥${data.reduce((s,e)=>s+e.amount,0).toLocaleString()}</strong><br>` +
+    sample.join('<br>') + (data.length > 5 ? `<br>… 他${data.length - 5}件` : '');
+  prev.style.display = 'block';
+
+  toast(`仕訳帳CSV（${person}・${year}年）を出力しました`);
+}
+
+function renderYearlyJournalLabel() {
+  const el = document.getElementById('journalYearLabel');
+  if (el) el.textContent = curYear;
+}
+
 function importJSON(ev) {
   const file = ev.target.files[0];
   if (!file) return;
@@ -1381,6 +1430,7 @@ function importJSON(ev) {
 
 function renderYearly() {
   document.getElementById('yearLabel').textContent = curYear + '年';
+  renderYearlyJournalLabel();
   const svcKeys = Object.keys(SERVICES);
   const rows = [];
   for (let m=1; m<=12; m++) {

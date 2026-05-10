@@ -97,6 +97,9 @@ body {
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  position: sticky;
+  top: 0;
+  z-index: 200;
 }
 .tabs::-webkit-scrollbar { display: none; }
 .tab-btn {
@@ -206,6 +209,8 @@ body {
 .streak-pct.wife { color: var(--wife-col); }
 .streak-pct-label { font-size: 0.68rem; color: var(--text-muted); }
 .streak-warn { font-size: 0.72rem; color: #FFB300; margin-top: 3px; }
+.streak-sub { font-size: 0.72rem; color: var(--text-secondary); margin-top: 4px; display: flex; align-items: baseline; gap: 5px; flex-wrap: wrap; }
+.streak-sub-num { font-weight: 700; color: var(--text-primary); }
 
 /* CALENDAR HEATMAP */
 .cal-card {
@@ -723,7 +728,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
         <thead>
           <tr>
             <th>日付</th><th>名前</th><th>サービス</th>
-            <th>件数</th><th>売上</th><th>メモ</th><th></th>
+            <th>件数</th><th>売上</th><th>メモ</th><th>📷</th><th></th>
           </tr>
         </thead>
         <tbody id="histBody"></tbody>
@@ -969,9 +974,13 @@ function renderDashboard() {
 }
 
 // ── Streak ──
-function calcStreak(person) {
+function calcStreak(person, service = null) {
   const workedSet = new Set(
-    entries.filter(e => e.person === person && e.amount > 0).map(e => e.date)
+    entries.filter(e => {
+      if (e.person !== person) return false;
+      if (service && e.service !== service) return false;
+      return e.deliveries > 0;
+    }).map(e => e.date)
   );
   const sorted = [...workedSet].sort().reverse();
   if (!sorted.length) return { current: 0, longest: 0 };
@@ -1007,6 +1016,7 @@ function renderStreak() {
     const id = person === '自分' ? 'streakSelf' : 'streakWife';
     const cls = person === '自分' ? 'self' : 'wife';
     const { current, longest } = calcStreak(person);
+    const menu = calcStreak(person, 'menu');
 
     const daysInMonth = new Date(curYear, curMonth, 0).getDate();
     const workedThisMonth = new Set(
@@ -1030,6 +1040,7 @@ function renderStreak() {
           <span class="streak-num ${cls}">${current}日連続</span>
           <span class="streak-best">🏆 最長&nbsp;${longest}日</span>
         </div>
+        <div class="streak-sub">🍜 menu: <span class="streak-sub-num">${menu.current}日連続</span><span style="opacity:0.7">/ 最長&nbsp;${menu.longest}日</span></div>
         ${warn}
       </div>
       <div class="streak-right">
@@ -1284,11 +1295,22 @@ function renderHistory() {
 
   const tbody = document.getElementById('histBody');
   if (!data.length) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><div class="ei">📭</div><p>この月のデータがありません<br>「売上入力」タブから追加できます</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="ei">📭</div><p>この月のデータがありません<br>「売上入力」タブから追加できます</p></div></td></tr>`;
     return;
   }
   tbody.innerHTML = data.map(e => {
     const cfg = SERVICES[e.service] || { color:'#888', bg:'rgba(136,136,136,0.13)' };
+    let imgCell = '';
+    if (e.img) {
+      const yr = e.img.slice(0, 4), mo = e.img.slice(4, 6);
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const imgUrl = isMobile
+        ? 'https://drive.google.com/drive/search?q=' + encodeURIComponent(e.img)
+        : 'file:///H:/' + encodeURIComponent('マイドライブ') +
+          '/delivery_records/' + yr + '/' + mo + '/' +
+          encodeURIComponent(e.person) + '/' + encodeURIComponent(e.img);
+      imgCell = `<a href="${imgUrl}" target="_blank" rel="noopener" title="${e.img}" style="font-size:1.1rem;text-decoration:none">📷</a>`;
+    }
     return `<tr>
       <td>${e.date}</td>
       <td class="${e.person==='自分'?'p-self':'p-wife'}">${e.person}</td>
@@ -1296,6 +1318,7 @@ function renderHistory() {
       <td>${e.deliveries}件</td>
       <td class="amt-cell">${fmt(e.amount)}</td>
       <td style="color:var(--text-muted);font-size:0.78rem">${e.note||''}</td>
+      <td style="text-align:center">${imgCell}</td>
       <td><button class="btn btn-del" onclick="delEntry('${e.id}')">削除</button></td>
     </tr>`;
   }).join('');

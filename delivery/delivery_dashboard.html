@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>フードデリバリー売上管理</title>
 <link rel="manifest" href="../manifest.json">
 <link rel="apple-touch-icon" href="../icon-192.png">
@@ -251,6 +254,18 @@ body {
 .cal-cell.i4 { background: rgba(255,80,0,0.9); color: #fff; font-weight: 700; }
 .cal-cell.today { outline: 2px solid rgba(255,255,255,0.5); outline-offset: 1px; }
 .cal-cell.today.i0 { outline-color: rgba(255,255,255,0.3); }
+.cal-day-num { font-size: 0.48rem; line-height: 1; }
+.cal-cell.has-stamp .cal-day-num { position: absolute; top: 1px; right: 2px; font-size: 0.38rem; opacity: 0.5; }
+.cal-stamp { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 0.95rem; pointer-events: none; line-height: 1; }
+/* STAMP PICKER */
+.stamp-picker-row { display: flex; align-items: center; gap: 7px; margin: 7px 0 3px; flex-wrap: wrap; }
+.stamp-picker-label { font-size: 0.62rem; color: var(--text-muted); white-space: nowrap; }
+.stamp-btn { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; cursor: pointer; font-size: 0.95rem; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; padding: 0; }
+.stamp-btn:hover { background: rgba(255,255,255,0.14); transform: scale(1.15); }
+.stamp-btn.active { background: rgba(255,215,0,0.18); border-color: rgba(255,215,0,0.55); }
+/* SERVICE LOGOS */
+.svc-logo { width: 20px; height: 20px; border-radius: 4px; object-fit: contain; flex-shrink: 0; }
+.svc-logo-sm { width: 14px; height: 14px; border-radius: 3px; object-fit: contain; vertical-align: middle; margin-right: 2px; }
 
 /* CALENDAR TOOLTIP */
 #calTooltip {
@@ -618,6 +633,10 @@ tr:hover td { background: rgba(255,255,255,0.02); }
           <div class="cal-leg"><div class="cal-leg-box" style="background:rgba(255,80,0,0.9)"></div>¥10k+</div>
         </div>
       </div>
+      <div class="stamp-picker-row">
+        <span class="stamp-picker-label">スタンプ</span>
+        <div id="stampPicker"></div>
+      </div>
       <div class="cal-persons">
         <div class="cal-person-col">
           <div class="cal-person-hd p-self">自分</div>
@@ -840,12 +859,16 @@ const firebaseConfig = {
 
 // ── Config ──
 const SERVICES = {
-  'Uber Eats':  { color: '#06C167', bg: 'rgba(6,193,103,0.13)' },
-  '出前館':     { color: '#e60012', bg: 'rgba(230,0,18,0.13)' },
-  'menu':       { color: '#FF6B00', bg: 'rgba(255,107,0,0.13)' },
-  'ロケットナウ': { color: '#4A90E2', bg: 'rgba(74,144,226,0.13)' },
-  'DiDi':       { color: '#9C27B0', bg: 'rgba(156,39,176,0.13)', retiredAfter: 2025 },
+  'Uber Eats':  { color: '#06C167', bg: 'rgba(6,193,103,0.13)',  domain: 'ubereats.com' },
+  '出前館':     { color: '#e60012', bg: 'rgba(230,0,18,0.13)',   domain: 'demae-can.com' },
+  'menu':       { color: '#FF6B00', bg: 'rgba(255,107,0,0.13)',  domain: 'menu.jp' },
+  'ロケットナウ': { color: '#4A90E2', bg: 'rgba(74,144,226,0.13)', domain: 'rocketnow.jp' },
+  'DiDi':       { color: '#9C27B0', bg: 'rgba(156,39,176,0.13)', domain: 'didifood.com', retiredAfter: 2025 },
 };
+function svcLogoImg(cfg, cls) {
+  if (!cfg.domain) return `<div class="svc-dot" style="background:${cfg.color}"></div>`;
+  return `<img class="${cls}" src="https://www.google.com/s2/favicons?domain=${cfg.domain}&sz=32" alt="" onerror="this.style.display='none'">`;
+}
 function activeServices(year) {
   return Object.fromEntries(Object.entries(SERVICES).filter(([,cfg]) => !cfg.retiredAfter || cfg.retiredAfter >= year));
 }
@@ -959,7 +982,7 @@ function renderDashboard() {
     const totD = yDel + wDel;
     return `<div class="svc-card" style="border-left-color:${cfg.color}">
       <div class="svc-hd">
-        <div class="svc-dot" style="background:${cfg.color}"></div>
+        ${svcLogoImg(cfg, 'svc-logo')}
         <div class="svc-name">${svc}${svc==='ロケットナウ'?' <span style="font-size:0.65rem;color:var(--text-muted)">手動</span>':''}</div>
       </div>
       <div class="svc-split">
@@ -981,6 +1004,38 @@ function renderDashboard() {
   renderStreak();
   renderCalendar(data);
   renderCharts(data);
+}
+
+// ── Stamp ──
+const STAMP_THEMES = [
+  { id: 'none',   label: 'なし',      stamps: null },
+  { id: 'hana',   label: '🌸 花',     stamps: ['🌸','🌼','🌺','🌻','🌷','🪷'] },
+  { id: 'animal', label: '🐱 どうぶつ', stamps: ['🐱','🐶','🐰','🐼','🐻','🐸'] },
+  { id: 'star',   label: '⭐ 星',     stamps: ['⭐','🌟','💫','✨','🌙','☀️'] },
+  { id: 'ribbon', label: '🎀 リボン',  stamps: ['🎀','💝','💕','🎊','🎉','🌈'] },
+  { id: 'food',   label: '🍭 お菓子',  stamps: ['🍭','🍰','🧁','🍩','🍪','🎂'] },
+];
+let stampTheme = localStorage.getItem('stampTheme') || 'none';
+
+function getStamp(theme, deliveries) {
+  const t = STAMP_THEMES.find(t => t.id === theme);
+  if (!t || !t.stamps) return null;
+  return t.stamps[Math.min(deliveries - 1, t.stamps.length - 1)];
+}
+
+function renderStampPicker() {
+  const el = document.getElementById('stampPicker');
+  if (!el) return;
+  el.innerHTML = STAMP_THEMES.map(t =>
+    `<button class="stamp-btn${stampTheme === t.id ? ' active' : ''}" onclick="setStampTheme('${t.id}')" title="${t.label}">${t.stamps ? t.stamps[0] : '✕'}</button>`
+  ).join('');
+}
+
+function setStampTheme(id) {
+  stampTheme = id;
+  localStorage.setItem('stampTheme', id);
+  renderStampPicker();
+  renderCalendar(monthEntries());
 }
 
 // ── Streak ──
@@ -1050,7 +1105,7 @@ function renderStreak() {
           <span class="streak-num ${cls}">${current}日連続</span>
           <span class="streak-best">🏆 最長&nbsp;${longest}日</span>
         </div>
-        <div class="streak-sub">🍜 menu: <span class="streak-sub-num">${menu.current}日連続</span><span style="opacity:0.7">/ 最長&nbsp;${menu.longest}日</span></div>
+        <div class="streak-sub"><img class="svc-logo-sm" src="https://www.google.com/s2/favicons?domain=menu.jp&sz=32" alt="menu" onerror="this.outerHTML='🍜'"> menu: <span class="streak-sub-num">${menu.current}日連続</span><span style="opacity:0.7">/ 最長&nbsp;${menu.longest}日</span></div>
         ${warn}
       </div>
       <div class="streak-right">
@@ -1076,12 +1131,15 @@ function renderCalendar(data) {
     for (let i = 0; i < firstDow; i++) html += '<div class="cal-cell empty"></div>';
     for (let d = 1; d <= daysInMonth; d++) {
       const ds = `${ms}-${String(d).padStart(2,'0')}`;
-      const amt = data.filter(e => e.date === ds && e.person === person)
-                      .reduce((s,e) => s + e.amount, 0);
+      const dayE = data.filter(e => e.date === ds && e.person === person);
+      const amt = dayE.reduce((s,e) => s + e.amount, 0);
+      const dels = dayE.reduce((s,e) => s + e.deliveries, 0);
       const intensity = amt === 0 ? 'i0' : amt <= 2000 ? 'i1' : amt <= 4000 ? 'i2' : amt <= 10000 ? 'i3' : 'i4';
       const isToday = ds === today ? ' today' : '';
       const hasData = amt > 0 ? ' has-data' : '';
-      html += `<div class="cal-cell ${intensity}${isToday}${hasData}" data-ds="${ds}" data-person="${person}">${d}</div>`;
+      const stamp = dels > 0 ? getStamp(stampTheme, dels) : null;
+      const hasStamp = stamp ? ' has-stamp' : '';
+      html += `<div class="cal-cell ${intensity}${isToday}${hasData}${hasStamp}" data-ds="${ds}" data-person="${person}"><span class="cal-day-num">${d}</span>${stamp ? `<span class="cal-stamp">${stamp}</span>` : ''}</div>`;
     }
     el.innerHTML = html;
   });
@@ -1809,6 +1867,7 @@ const SAMPLE = [
 // ── Firebase 初期化 ──
 firebase.initializeApp(firebaseConfig);
 entriesRef = firebase.database().ref('entries');
+renderStampPicker();
 
 let _initialized = false;
 entriesRef.on('value', snapshot => {

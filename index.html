@@ -254,15 +254,17 @@ body {
 .cal-cell.i4 { background: rgba(255,80,0,0.9); color: #fff; font-weight: 700; }
 .cal-cell.today { outline: 2px solid rgba(255,255,255,0.5); outline-offset: 1px; }
 .cal-cell.today.i0 { outline-color: rgba(255,255,255,0.3); }
+.cal-cell { overflow: visible; }
+.cal-grid { overflow: visible; }
 .cal-day-num { font-size: 0.48rem; line-height: 1; }
-.cal-cell.has-stamp .cal-day-num { position: absolute; top: 1px; right: 2px; font-size: 0.38rem; opacity: 0.5; }
-.cal-stamp { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 0.95rem; pointer-events: none; line-height: 1; }
-/* STAMP PICKER */
-.stamp-picker-row { display: flex; align-items: center; gap: 7px; margin: 7px 0 3px; flex-wrap: wrap; }
-.stamp-picker-label { font-size: 0.62rem; color: var(--text-muted); white-space: nowrap; }
-.stamp-btn { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; cursor: pointer; font-size: 0.95rem; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; padding: 0; }
-.stamp-btn:hover { background: rgba(255,255,255,0.14); transform: scale(1.15); }
-.stamp-btn.active { background: rgba(255,215,0,0.18); border-color: rgba(255,215,0,0.55); }
+.cal-cell.has-stamp .cal-day-num { position: absolute; top: 1px; right: 2px; font-size: 0.36rem; opacity: 0.45; }
+.cal-stamp { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1.7rem; pointer-events: none; line-height: 1; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
+/* STAMP PALETTE */
+.stamp-palette-wrap { margin: 4px 0 3px; }
+.stamp-palette { display: flex; flex-wrap: wrap; gap: 2px; }
+.stamp-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 5px; cursor: grab; font-size: 0.82rem; width: 21px; height: 21px; display: flex; align-items: center; justify-content: center; transition: all 0.12s; padding: 0; user-select: none; touch-action: none; }
+.stamp-btn:hover { background: rgba(255,255,255,0.13); transform: scale(1.12); }
+.stamp-btn.selected { background: rgba(255,215,0,0.22); border-color: #FFD700; transform: scale(1.18); box-shadow: 0 0 7px rgba(255,215,0,0.45); }
 /* SERVICE LOGOS */
 .svc-logo { width: 20px; height: 20px; border-radius: 4px; object-fit: contain; flex-shrink: 0; }
 .svc-logo-sm { width: 14px; height: 14px; border-radius: 3px; object-fit: contain; vertical-align: middle; margin-right: 2px; }
@@ -633,17 +635,15 @@ tr:hover td { background: rgba(255,255,255,0.02); }
           <div class="cal-leg"><div class="cal-leg-box" style="background:rgba(255,80,0,0.9)"></div>¥10k+</div>
         </div>
       </div>
-      <div class="stamp-picker-row">
-        <span class="stamp-picker-label">スタンプ</span>
-        <div id="stampPicker"></div>
-      </div>
       <div class="cal-persons">
         <div class="cal-person-col">
           <div class="cal-person-hd p-self">自分</div>
+          <div class="stamp-palette-wrap"><div class="stamp-palette" id="stampPaletteSelf"></div></div>
           <div class="cal-grid" id="calSelf"></div>
         </div>
         <div class="cal-person-col">
           <div class="cal-person-hd p-wife">妻</div>
+          <div class="stamp-palette-wrap"><div class="stamp-palette" id="stampPaletteWife"></div></div>
           <div class="cal-grid" id="calWife"></div>
         </div>
       </div>
@@ -1007,35 +1007,51 @@ function renderDashboard() {
 }
 
 // ── Stamp ──
-const STAMP_THEMES = [
-  { id: 'none',   label: 'なし',      stamps: null },
-  { id: 'hana',   label: '🌸 花',     stamps: ['🌸','🌼','🌺','🌻','🌷','🪷'] },
-  { id: 'animal', label: '🐱 どうぶつ', stamps: ['🐱','🐶','🐰','🐼','🐻','🐸'] },
-  { id: 'star',   label: '⭐ 星',     stamps: ['⭐','🌟','💫','✨','🌙','☀️'] },
-  { id: 'ribbon', label: '🎀 リボン',  stamps: ['🎀','💝','💕','🎊','🎉','🌈'] },
-  { id: 'food',   label: '🍭 お菓子',  stamps: ['🍭','🍰','🧁','🍩','🍪','🎂'] },
+const ALL_STAMPS = [
+  '🌸','🌼','🌺','🌻','🌷','🪷',
+  '🐱','🐶','🐰','🐼','🐻','🐸',
+  '⭐','🌟','💫','✨','🌙','☀️',
+  '🎀','💝','💕','🎊','🎉','🌈',
+  '🍭','🍰','🧁','🍩','🍪','🎂',
 ];
-let stampTheme = localStorage.getItem('stampTheme') || 'none';
+let stampDays = JSON.parse(localStorage.getItem('stampDays') || '{}');
+let activeStamp = null, activeStampPerson = null;
 
-function getStamp(theme, deliveries) {
-  const t = STAMP_THEMES.find(t => t.id === theme);
-  if (!t || !t.stamps) return null;
-  return t.stamps[Math.min(deliveries - 1, t.stamps.length - 1)];
-}
+function saveStampDays() { localStorage.setItem('stampDays', JSON.stringify(stampDays)); }
+function getStampForDay(person, date) { return stampDays[`${person}_${date}`] || null; }
 
-function renderStampPicker() {
-  const el = document.getElementById('stampPicker');
-  if (!el) return;
-  el.innerHTML = STAMP_THEMES.map(t =>
-    `<button class="stamp-btn${stampTheme === t.id ? ' active' : ''}" onclick="setStampTheme('${t.id}')" title="${t.label}">${t.stamps ? t.stamps[0] : '✕'}</button>`
-  ).join('');
-}
-
-function setStampTheme(id) {
-  stampTheme = id;
-  localStorage.setItem('stampTheme', id);
-  renderStampPicker();
+function applyStampToDay(person, date, stamp) {
+  stampDays[`${person}_${date}`] = stamp;
+  saveStampDays();
+  activeStamp = null; activeStampPerson = null;
+  renderStampPalettes();
   renderCalendar(monthEntries());
+}
+
+function stampDrop(e, date, person) {
+  e.preventDefault();
+  const s = e.dataTransfer.getData('stamp'), p = e.dataTransfer.getData('person');
+  if (s && p === person) applyStampToDay(person, date, s);
+}
+
+function selectStamp(stamp, person) {
+  if (activeStamp === stamp && activeStampPerson === person) {
+    activeStamp = null; activeStampPerson = null;
+  } else {
+    activeStamp = stamp; activeStampPerson = person;
+  }
+  renderStampPalettes();
+}
+
+function renderStampPalettes() {
+  ['自分','妻'].forEach(person => {
+    const el = document.getElementById(person === '自分' ? 'stampPaletteSelf' : 'stampPaletteWife');
+    if (!el) return;
+    const sel = activeStampPerson === person ? activeStamp : null;
+    el.innerHTML = ALL_STAMPS.map(s =>
+      `<button class="stamp-btn${sel === s ? ' selected' : ''}" data-stamp="${s}" data-person="${person}" draggable="true" ondragstart="event.dataTransfer.setData('stamp','${s}');event.dataTransfer.setData('person','${person}')" onclick="selectStamp('${s}','${person}')">${s}</button>`
+    ).join('');
+  });
 }
 
 // ── Streak ──
@@ -1137,9 +1153,9 @@ function renderCalendar(data) {
       const intensity = amt === 0 ? 'i0' : amt <= 2000 ? 'i1' : amt <= 4000 ? 'i2' : amt <= 10000 ? 'i3' : 'i4';
       const isToday = ds === today ? ' today' : '';
       const hasData = amt > 0 ? ' has-data' : '';
-      const stamp = dels > 0 ? getStamp(stampTheme, dels) : null;
+      const stamp = dels > 0 ? getStampForDay(person, ds) : null;
       const hasStamp = stamp ? ' has-stamp' : '';
-      html += `<div class="cal-cell ${intensity}${isToday}${hasData}${hasStamp}" data-ds="${ds}" data-person="${person}"><span class="cal-day-num">${d}</span>${stamp ? `<span class="cal-stamp">${stamp}</span>` : ''}</div>`;
+      html += `<div class="cal-cell ${intensity}${isToday}${hasData}${hasStamp}" data-ds="${ds}" data-person="${person}" ondragover="event.preventDefault()" ondrop="stampDrop(event,'${ds}','${person}')"><span class="cal-day-num">${d}</span>${stamp ? `<span class="cal-stamp">${stamp}</span>` : ''}</div>`;
     }
     el.innerHTML = html;
   });
@@ -1151,7 +1167,12 @@ function initCalTooltip() {
   let hideTimer = null;
 
   document.querySelectorAll('.cal-cell.has-data').forEach(cell => {
+    cell.addEventListener('click', () => {
+      if (activeStamp && activeStampPerson === cell.dataset.person)
+        applyStampToDay(cell.dataset.person, cell.dataset.ds, activeStamp);
+    });
     cell.addEventListener('mouseenter', e => {
+      if (activeStamp) return;
       clearTimeout(hideTimer);
       showCalTip(cell, e.clientX, e.clientY);
     });
@@ -1161,6 +1182,11 @@ function initCalTooltip() {
     });
     cell.addEventListener('touchstart', e => {
       e.preventDefault();
+      const person = cell.dataset.person;
+      if (activeStamp !== null && activeStampPerson === person) {
+        applyStampToDay(person, cell.dataset.ds, activeStamp);
+        return;
+      }
       const already = tip.classList.contains('visible') && tip.dataset.ds === cell.dataset.ds;
       tip.classList.remove('visible');
       if (!already) {
@@ -1867,7 +1893,43 @@ const SAMPLE = [
 // ── Firebase 初期化 ──
 firebase.initializeApp(firebaseConfig);
 entriesRef = firebase.database().ref('entries');
-renderStampPicker();
+renderStampPalettes();
+
+// タッチドラッグ（スタンプパレット → カレンダーセル）
+let _tStamp = null, _tPerson = null, _tGhost = null, _tMoved = false;
+document.addEventListener('touchstart', e => {
+  const btn = e.target.closest('.stamp-btn[data-stamp]');
+  if (!btn) return;
+  e.preventDefault();
+  _tStamp = btn.dataset.stamp; _tPerson = btn.dataset.person; _tMoved = false;
+}, { passive: false });
+document.addEventListener('touchmove', e => {
+  if (!_tStamp) return;
+  e.preventDefault();
+  if (!_tMoved) {
+    _tMoved = true;
+    _tGhost = Object.assign(document.createElement('div'), { textContent: _tStamp });
+    _tGhost.style.cssText = 'position:fixed;pointer-events:none;z-index:9999;font-size:2.5rem;line-height:1;transform:translate(-50%,-50%);opacity:0.85;transition:none;';
+    document.body.appendChild(_tGhost);
+  }
+  const t = e.touches[0];
+  if (_tGhost) { _tGhost.style.left = t.clientX + 'px'; _tGhost.style.top = t.clientY + 'px'; }
+}, { passive: false });
+document.addEventListener('touchend', e => {
+  if (!_tStamp) return;
+  if (_tMoved && _tGhost) {
+    const t = e.changedTouches[0];
+    _tGhost.style.visibility = 'hidden';
+    const el = document.elementFromPoint(t.clientX, t.clientY);
+    _tGhost.remove(); _tGhost = null;
+    const cell = el?.closest('.cal-cell.has-data');
+    if (cell && cell.dataset.person === _tPerson)
+      applyStampToDay(_tPerson, cell.dataset.ds, _tStamp);
+  } else if (!_tMoved) {
+    selectStamp(_tStamp, _tPerson);
+  }
+  _tStamp = null; _tPerson = null; _tMoved = false;
+}, { passive: false });
 
 let _initialized = false;
 entriesRef.on('value', snapshot => {

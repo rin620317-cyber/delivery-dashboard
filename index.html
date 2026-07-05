@@ -419,6 +419,37 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .yearly-section { background: var(--bg-card); border-radius: var(--radius); padding: 20px; border: 1px solid var(--border); }
 .yearly-section h3 { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 14px; font-weight: 500; }
 
+/* 損益ストリップ（ダッシュボード） */
+.pl-strip {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 18px; margin-bottom: 20px;
+}
+.pl-strip .pl-item { text-align: center; }
+.pl-strip .pl-label { font-size: 0.68rem; color: var(--text-secondary); margin-bottom: 4px; }
+.pl-strip .pl-val { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.5px; }
+.pl-strip .pl-val.rev { color: var(--accent); }
+.pl-strip .pl-val.exp { color: #ff8c6b; }
+.pl-strip .pl-val.inc { color: #4ade80; }
+@media (max-width: 480px) { .pl-strip { padding: 12px 8px; } .pl-strip .pl-val { font-size: 1.02rem; } }
+
+/* 経費按分プレビュー */
+.exp-calc-note { font-size: 0.78rem; color: var(--text-secondary); }
+.exp-calc-note strong { color: #4ade80; }
+
+/* 損益計算書（年間タブ） */
+.pl-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 620px) { .pl-cols { grid-template-columns: 1fr; } }
+.pl-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px 18px; }
+.pl-card h4 { font-size: 0.9rem; margin-bottom: 12px; }
+.pl-card table { font-size: 0.82rem; }
+.pl-card td { padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.pl-card td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.pl-row-rev td { font-weight: 700; }
+.pl-row-sub td { color: var(--text-secondary); }
+.pl-row-exptot td { border-top: 1px solid var(--border); font-weight: 700; color: #ff8c6b; }
+.pl-row-income td { border-top: 2px solid var(--border); font-size: 0.95rem; font-weight: 800; color: #4ade80; padding-top: 9px; }
+
 /* TOAST */
 .toast {
   position: fixed; bottom: 20px; right: 20px;
@@ -591,6 +622,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 <div class="tabs">
   <button class="tab-btn active" onclick="switchTab('dashboard',this)">📊 ダッシュボード</button>
   <button class="tab-btn" onclick="switchTab('input',this)">➕ 売上入力</button>
+  <button class="tab-btn" onclick="switchTab('expense',this)">💴 経費入力</button>
   <button class="tab-btn" onclick="switchTab('history',this)">📋 履歴</button>
   <button class="tab-btn" onclick="switchTab('annual',this)">📅 年間</button>
   <button class="tab-btn" onclick="switchTab('export',this)">💾 エクスポート</button>
@@ -616,6 +648,13 @@ tr:hover td { background: rgba(255,255,255,0.02); }
         <div class="s-amt" id="wifeAmt">¥0</div>
         <div class="s-sub" id="wifeDel">配達 0件</div>
       </div>
+    </div>
+
+    <!-- 損益ストリップ（今月：売上 − 経費 = 所得） -->
+    <div class="pl-strip">
+      <div class="pl-item"><div class="pl-label">今月の売上</div><div class="pl-val rev" id="plRev">¥0</div></div>
+      <div class="pl-item"><div class="pl-label">今月の経費</div><div class="pl-val exp" id="plExp">−¥0</div></div>
+      <div class="pl-item"><div class="pl-label">今月の所得（売上−経費）</div><div class="pl-val inc" id="plInc">¥0</div></div>
     </div>
 
     <!-- STREAK -->
@@ -715,6 +754,76 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     </div>
   </div>
 
+  <!-- EXPENSE -->
+  <div id="tab-expense" class="tab-panel">
+    <div class="form-wrap">
+      <div class="form-card">
+        <h2>経費を入力する</h2>
+        <div class="form-grid">
+          <div class="fg">
+            <label>日付</label>
+            <input type="date" id="eDate">
+          </div>
+          <div class="fg">
+            <label>名前</label>
+            <select id="ePerson">
+              <option value="自分">自分</option>
+              <option value="妻">妻</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>科目</label>
+            <select id="eCategory" onchange="onCatChange()"></select>
+          </div>
+          <div class="fg">
+            <label>支払方法</label>
+            <select id="ePayment">
+              <option value="現金">現金</option>
+              <option value="事業用口座">事業用口座</option>
+              <option value="クレジットカード">クレジットカード</option>
+              <option value="プライベート立替">プライベート立替</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>金額（円・税込）</label>
+            <input type="number" id="eAmount" placeholder="例: 3300" min="0" oninput="updateExpCalc()">
+          </div>
+          <div class="fg">
+            <label>事業割合（家事按分 %）</label>
+            <input type="number" id="eRatio" value="100" min="0" max="100" oninput="updateExpCalc()">
+          </div>
+          <div class="fg full">
+            <div class="exp-calc-note" id="expCalcNote">計上額（経費になる額）= <strong>¥0</strong></div>
+          </div>
+          <div class="fg full">
+            <label>メモ（任意）</label>
+            <input type="text" id="eNote" placeholder="例: スマホ料金、配達バッグ購入">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="addExpense()">追加する</button>
+      </div>
+    </div>
+
+    <div class="tbl-header" style="margin-top:24px">
+      <h2 id="expTitle">経費一覧</h2>
+    </div>
+    <div class="yearly-section" style="margin-bottom:16px">
+      <h3>科目別集計（<span id="expYearLabel"></span>・計上額）</h3>
+      <div id="expSummary" class="tbl-wrap"></div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>日付</th><th>名前</th><th>科目</th>
+            <th>金額</th><th>割合</th><th>計上額</th><th>支払</th><th>メモ</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="expBody"></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- HISTORY -->
   <div id="tab-history" class="tab-panel">
     <div class="tbl-header">
@@ -787,18 +896,34 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <h3>サービス別年間売上</h3>
       <div id="annualSvcBreakdown" class="tbl-wrap"></div>
     </div>
+    <div class="chart-card" style="margin-top:16px">
+      <h3>損益計算書（青色申告用・人物別）</h3>
+      <div id="annualPL" class="pl-cols"></div>
+      <p style="font-size:0.72rem;color:var(--text-muted);margin-top:12px;line-height:1.6">
+        ※ 経費は家事按分後の「計上額」で集計。減価償却費は Phase 2 で自動化予定（現状は手入力分）。
+        自分・妻それぞれが個人事業主として別々に申告する前提。
+      </p>
+    </div>
   </div>
 
   <!-- EXPORT -->
   <div id="tab-export" class="tab-panel">
     <div class="exp-grid">
       <div class="exp-card">
-        <h3>📄 CSV出力（確定申告用）</h3>
+        <h3>📄 売上CSV出力（確定申告用）</h3>
         <p>日付・名前・サービス・件数・売上のCSVを出力。Excelや会計ソフトに直接読み込めます。</p>
         <div class="exp-btns">
           <button class="btn btn-outline" onclick="exportCSV('month')">今月分を出力</button>
           <button class="btn btn-outline" onclick="exportCSV('year')">今年分を出力</button>
           <button class="btn btn-outline" onclick="exportCSV('all')">全期間を出力</button>
+        </div>
+      </div>
+      <div class="exp-card">
+        <h3>🧾 経費CSV出力（確定申告用）</h3>
+        <p>日付・名前・科目・金額・事業割合・計上額のCSVを出力。家事按分後の計上額つき。</p>
+        <div class="exp-btns">
+          <button class="btn btn-outline" onclick="exportExpenseCSV('year')">今年分を出力</button>
+          <button class="btn btn-outline" onclick="exportExpenseCSV('all')">全期間を出力</button>
         </div>
       </div>
       <div class="exp-card">
@@ -873,12 +998,34 @@ function activeServices(year) {
   return Object.fromEntries(Object.entries(SERVICES).filter(([,cfg]) => !cfg.retiredAfter || cfg.retiredAfter >= year));
 }
 
+// ── 経費の科目（青色申告決算書の科目に対応。defaultRatio＝家事按分の初期事業割合%） ──
+const EXPENSE_CATEGORIES = [
+  { key: '通信費',     defaultRatio: 50  },  // スマホ・ネット
+  { key: '消耗品費',   defaultRatio: 100 },  // 配達バッグ・ホルダー・雨具・電池
+  { key: '車両費',     defaultRatio: 80  },  // 自転車パーツ・ガソリン
+  { key: '旅費交通費', defaultRatio: 100 },  // 電車・駐輪場・高速
+  { key: '修繕費',     defaultRatio: 100 },  // 自転車整備・パンク修理
+  { key: '損害保険料', defaultRatio: 100 },  // 配達保険・自転車保険
+  { key: '水道光熱費', defaultRatio: 30  },  // 端末・e-bike充電
+  { key: '租税公課',   defaultRatio: 100 },  // 自賠責・防犯登録・事業税
+  { key: '減価償却費', defaultRatio: 100 },  // 高額備品（Phase2で自動化予定）
+  { key: '雑費',       defaultRatio: 100 },  // その他
+];
+const EXP_CAT_KEYS = EXPENSE_CATEGORIES.map(c => c.key);
+function catDefaultRatio(key) {
+  const c = EXPENSE_CATEGORIES.find(x => x.key === key);
+  return c ? c.defaultRatio : 100;
+}
+// 家事按分後の計上額（経費になる額）
+function expBusiness(e) { return Math.round(e.amount * (e.ratio ?? 100) / 100); }
+
 // ── State ──
 let entries = [];
+let expenses = [];
 let curYear  = new Date().getFullYear();
 let curMonth = new Date().getMonth() + 1;
 let dailyChart = null, pieChart = null, annualChart = null;
-let entriesRef;
+let entriesRef, expensesRef;
 
 function save() {
   const data = {};
@@ -888,6 +1035,7 @@ function save() {
 function fmt(n) { return '¥' + Number(n).toLocaleString('ja-JP'); }
 function monthStr() { return `${curYear}-${String(curMonth).padStart(2,'0')}`; }
 function monthEntries() { return entries.filter(e => e.date.startsWith(monthStr())); }
+function monthExpenses() { return expenses.filter(e => e.date.startsWith(monthStr())); }
 
 // ── Nav ──
 function switchTab(name, btn) {
@@ -896,6 +1044,7 @@ function switchTab(name, btn) {
   document.getElementById('tab-' + name).classList.add('active');
   btn.classList.add('active');
   if (name === 'dashboard') renderDashboard();
+  if (name === 'expense')   renderExpense();
   if (name === 'history')   renderHistory();
   if (name === 'annual')    renderAnnual();
   if (name === 'export')    renderYearly();
@@ -1000,6 +1149,15 @@ function renderDashboard() {
       <div class="svc-total-bar">合計 ${fmt(tot)} · ${totD}件</div>
     </div>`;
   }).join('');
+
+  // 損益ストリップ（今月：売上 − 経費 = 所得）
+  const mExp = monthExpenses().reduce((s,e) => s + expBusiness(e), 0);
+  const income = total - mExp;
+  document.getElementById('plRev').textContent = fmt(total);
+  document.getElementById('plExp').textContent = '−' + fmt(mExp);
+  const incEl = document.getElementById('plInc');
+  incEl.textContent = fmt(income);
+  incEl.style.color = income < 0 ? '#ff6b6b' : '';
 
   renderStreak();
   renderCalendar(data);
@@ -1374,6 +1532,137 @@ function addEntry() {
   toast(`${service}（${person}）${fmt(amount)} を追加しました ✓`);
 }
 
+// ── Expense（経費） ──
+function populateCategorySelect() {
+  const sel = document.getElementById('eCategory');
+  if (!sel) return;
+  sel.innerHTML = EXPENSE_CATEGORIES.map(c => `<option value="${c.key}">${c.key}</option>`).join('');
+  onCatChange();
+}
+
+function onCatChange() {
+  // 科目を選ぶと家事按分の初期値を差し込む
+  const cat = document.getElementById('eCategory').value;
+  document.getElementById('eRatio').value = catDefaultRatio(cat);
+  updateExpCalc();
+}
+
+function updateExpCalc() {
+  const amt = parseInt(document.getElementById('eAmount').value) || 0;
+  let ratio = parseInt(document.getElementById('eRatio').value);
+  if (isNaN(ratio)) ratio = 100;
+  ratio = Math.max(0, Math.min(100, ratio));
+  const biz = Math.round(amt * ratio / 100);
+  document.getElementById('expCalcNote').innerHTML =
+    `計上額（経費になる額）= <strong>${fmt(biz)}</strong>` +
+    (ratio < 100 ? `　<span style="color:var(--text-muted)">（${fmt(amt)} × ${ratio}%）</span>` : '');
+}
+
+function addExpense() {
+  const date     = document.getElementById('eDate').value;
+  const person   = document.getElementById('ePerson').value;
+  const category = document.getElementById('eCategory').value;
+  const payment  = document.getElementById('ePayment').value;
+  const amount   = parseInt(document.getElementById('eAmount').value) || 0;
+  let ratio      = parseInt(document.getElementById('eRatio').value);
+  if (isNaN(ratio)) ratio = 100;
+  ratio = Math.max(0, Math.min(100, ratio));
+  const note     = document.getElementById('eNote').value.trim();
+
+  if (!date)   { toast('日付を入力してください', true); return; }
+  if (!amount) { toast('金額を入力してください', true); return; }
+
+  const exp = { id: `x${Date.now()}_${Math.random().toString(36).slice(2)}`, date, person, category, payment, amount, ratio, note };
+  expenses.push(exp);
+  expensesRef.child(exp.id).set(exp);
+
+  document.getElementById('eAmount').value = '';
+  document.getElementById('eNote').value = '';
+  updateExpCalc();
+  toast(`${category}（${person}）${fmt(expBusiness(exp))} を計上しました ✓`);
+  renderExpense();
+}
+
+function delExpense(id) {
+  if (!confirm('この経費を削除しますか？')) return;
+  expenses = expenses.filter(e => e.id !== id);
+  expensesRef.child(id).remove();
+  renderExpense();
+  toast('削除しました');
+}
+
+function renderExpense() {
+  document.getElementById('expYearLabel').textContent = curYear + '年';
+  const data = expenses.filter(e => e.date.startsWith(curYear + ''))
+                       .sort((a,b) => b.date.localeCompare(a.date));
+
+  const total = data.reduce((s,e) => s + expBusiness(e), 0);
+  document.getElementById('expTitle').textContent = `経費一覧 — ${curYear}年 計上額合計 ${fmt(total)}`;
+
+  // 科目別集計（人物別の計上額）
+  let sum = `<table>
+    <thead><tr><th>科目</th><th style="color:var(--self-col)">自分</th><th style="color:var(--wife-col)">妻</th><th>計</th></tr></thead>
+    <tbody>`;
+  let gSelf = 0, gWife = 0;
+  EXP_CAT_KEYS.forEach(cat => {
+    const cd = data.filter(e => e.category === cat);
+    const s = cd.filter(e => e.person === '自分').reduce((a,e) => a + expBusiness(e), 0);
+    const w = cd.filter(e => e.person === '妻').reduce((a,e) => a + expBusiness(e), 0);
+    if (!s && !w) return;
+    gSelf += s; gWife += w;
+    sum += `<tr><td>${cat}</td>
+      <td style="color:var(--self-col)">${s ? fmt(s) : '-'}</td>
+      <td style="color:var(--wife-col)">${w ? fmt(w) : '-'}</td>
+      <td style="font-weight:700">${fmt(s + w)}</td></tr>`;
+  });
+  sum += `<tr style="border-top:2px solid var(--border)">
+    <td style="font-weight:700">合計</td>
+    <td style="font-weight:700;color:var(--self-col)">${fmt(gSelf)}</td>
+    <td style="font-weight:700;color:var(--wife-col)">${fmt(gWife)}</td>
+    <td style="font-weight:800;color:#ff8c6b">${fmt(gSelf + gWife)}</td></tr></tbody></table>`;
+  document.getElementById('expSummary').innerHTML =
+    (gSelf || gWife) ? sum : `<div class="empty" style="padding:20px"><p>${curYear}年の経費はまだありません</p></div>`;
+
+  // 明細
+  const tbody = document.getElementById('expBody');
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty"><div class="ei">🧾</div><p>${curYear}年の経費データがありません<br>上のフォームから追加できます</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.map(e => {
+    const biz = expBusiness(e);
+    const ratio = e.ratio ?? 100;
+    return `<tr>
+      <td>${e.date}</td>
+      <td class="${e.person==='自分'?'p-self':'p-wife'}">${e.person}</td>
+      <td>${e.category}</td>
+      <td>${fmt(e.amount)}</td>
+      <td style="color:${ratio<100?'#ffb300':'var(--text-muted)'}">${ratio}%</td>
+      <td class="amt-cell" style="color:#ff8c6b">${fmt(biz)}</td>
+      <td style="color:var(--text-muted);font-size:0.76rem">${e.payment||''}</td>
+      <td style="color:var(--text-muted);font-size:0.78rem">${e.note||''}</td>
+      <td><button class="btn btn-del" onclick="delExpense('${e.id}')">削除</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function exportExpenseCSV(mode) {
+  let data = mode === 'year'
+    ? expenses.filter(e => e.date.startsWith(curYear + ''))
+    : [...expenses];
+  data.sort((a,b) => a.date.localeCompare(b.date));
+  if (!data.length) { toast('該当データがありません'); return; }
+
+  const bom = '﻿';
+  const hdr = '日付,名前,科目,支払方法,金額,事業割合(%),計上額,メモ\n';
+  const rows = data.map(e =>
+    `${e.date},${e.person},${e.category},${e.payment||''},${e.amount},${e.ratio ?? 100},${expBusiness(e)},${e.note||''}`
+  ).join('\n');
+  const blob = new Blob([bom + hdr + rows], { type: 'text/csv;charset=utf-8' });
+  dlBlob(blob, mode === 'year' ? `keihi_${curYear}.csv` : 'keihi_all.csv');
+  toast('経費CSVを出力しました');
+}
+
 // ── History ──
 function renderHistory() {
   const fy = document.getElementById('fYear')?.value || '';
@@ -1710,6 +1999,41 @@ function renderAnnual() {
     <td style="font-weight:800;color:var(--accent)">${fmt(grandSelf+grandWife)}</td>
   </tr></tbody></table>`;
   document.getElementById('annualSvcBreakdown').innerHTML = svcHtml;
+
+  renderPL(y);
+}
+
+// 損益計算書（人物別・青色申告用）
+function renderPL(year) {
+  const el = document.getElementById('annualPL');
+  if (!el) return;
+  el.innerHTML = ['自分','妻'].map(person => {
+    const pcls = person === '自分' ? 'p-self' : 'p-wife';
+    const rev = entries.filter(e => e.person === person && e.date.startsWith(year + ''))
+                       .reduce((s,e) => s + e.amount, 0);
+    const exps = expenses.filter(e => e.person === person && e.date.startsWith(year + ''));
+    const expByCat = EXP_CAT_KEYS.map(cat => ({
+      cat,
+      amt: exps.filter(e => e.category === cat).reduce((s,e) => s + expBusiness(e), 0)
+    })).filter(x => x.amt > 0);
+    const expTotal = expByCat.reduce((s,x) => s + x.amt, 0);
+    const income = rev - expTotal;
+
+    const rows = expByCat.map(x =>
+      `<tr class="pl-row-sub"><td>　${x.cat}</td><td class="num">${fmt(x.amt)}</td></tr>`
+    ).join('') || `<tr class="pl-row-sub"><td>　（経費未入力）</td><td class="num">-</td></tr>`;
+
+    return `<div class="pl-card">
+      <h4 class="${pcls}">${person}</h4>
+      <table>
+        <tr class="pl-row-rev"><td>売上高</td><td class="num">${fmt(rev)}</td></tr>
+        <tr><td colspan="2" style="color:var(--text-muted);font-size:0.72rem;padding-top:8px">経費</td></tr>
+        ${rows}
+        <tr class="pl-row-exptot"><td>経費計</td><td class="num">${fmt(expTotal)}</td></tr>
+        <tr class="pl-row-income"><td>差引金額（事業所得）</td><td class="num">${fmt(income)}</td></tr>
+      </table>
+    </div>`;
+  }).join('');
 }
 
 function dlBlob(blob, name) {
@@ -1898,7 +2222,19 @@ const SAMPLE = [
 // ── Firebase 初期化 ──
 firebase.initializeApp(firebaseConfig);
 entriesRef = firebase.database().ref('entries');
+expensesRef = firebase.database().ref('expenses');
 renderStampPalettes();
+populateCategorySelect();
+
+// 経費のリアルタイム購読
+expensesRef.on('value', snapshot => {
+  const data = snapshot.val();
+  expenses = data ? Object.values(data) : [];
+  expenses.sort((a,b) => a.date.localeCompare(b.date));
+  if (document.getElementById('tab-dashboard').classList.contains('active')) renderDashboard();
+  if (document.getElementById('tab-expense').classList.contains('active'))   renderExpense();
+  if (document.getElementById('tab-annual').classList.contains('active'))    renderPL(parseInt(document.getElementById('annualYearSel').value) || curYear);
+});
 
 // タッチドラッグ（スタンプパレット → カレンダーセル）
 let _tStamp = null, _tPerson = null, _tGhost = null, _tMoved = false;
@@ -1949,6 +2285,7 @@ entriesRef.on('value', snapshot => {
     const now = new Date();
     curYear = now.getFullYear(); curMonth = now.getMonth() + 1;
     document.getElementById('iDate').value = now.toISOString().slice(0,10);
+    document.getElementById('eDate').value = now.toISOString().slice(0,10);
     populateYearSelects();
     updateLabel();
     renderDashboard();
@@ -1965,6 +2302,7 @@ entriesRef.on('value', snapshot => {
       curYear = now.getFullYear();
       curMonth = now.getMonth() + 1;
       document.getElementById('iDate').value = now.toISOString().slice(0,10);
+    document.getElementById('eDate').value = now.toISOString().slice(0,10);
       populateYearSelects();
       updateLabel();
     }

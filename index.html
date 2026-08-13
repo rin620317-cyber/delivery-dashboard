@@ -1109,12 +1109,17 @@ function renderDashboard() {
   const self = data.filter(e=>e.person==='自分');
   const wife = data.filter(e=>e.person==='妻');
 
+  const unit = (amt, del) => del > 0 ? fmt(Math.round(amt / del)) : '—';
   countUp(document.getElementById('totalAmt'), total);
-  document.getElementById('totalDel').textContent  = `配達 ${totalD}件 · 稼働 ${days}日`;
-  countUp(document.getElementById('selfAmt'), self.reduce((s,e)=>s+e.amount,0));
-  document.getElementById('selfDel').textContent   = `配達 ${self.reduce((s,e)=>s+e.deliveries,0)}件`;
-  countUp(document.getElementById('wifeAmt'), wife.reduce((s,e)=>s+e.amount,0));
-  document.getElementById('wifeDel').textContent   = `配達 ${wife.reduce((s,e)=>s+e.deliveries,0)}件`;
+  document.getElementById('totalDel').textContent  = `配達 ${totalD}件 · 稼働 ${days}日 · 単価 ${unit(total, totalD)}`;
+  const selfAmt = self.reduce((s,e)=>s+e.amount,0);
+  const selfDel = self.reduce((s,e)=>s+e.deliveries,0);
+  countUp(document.getElementById('selfAmt'), selfAmt);
+  document.getElementById('selfDel').textContent   = `配達 ${selfDel}件 · 単価 ${unit(selfAmt, selfDel)}`;
+  const wifeAmt = wife.reduce((s,e)=>s+e.amount,0);
+  const wifeDel = wife.reduce((s,e)=>s+e.deliveries,0);
+  countUp(document.getElementById('wifeAmt'), wifeAmt);
+  document.getElementById('wifeDel').textContent   = `配達 ${wifeDel}件 · 単価 ${unit(wifeAmt, wifeDel)}`;
 
   // Service cards
   const curSvcs = activeServices(curYear);

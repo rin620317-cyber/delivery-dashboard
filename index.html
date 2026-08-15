@@ -328,6 +328,40 @@ body {
 .mix-person { font-size: 0.75rem; font-weight: 700; margin-bottom: 6px; }
 .mix-wrap { position: relative; height: 200px; min-width: 560px; }
 
+/* 対象切替（自分 / 妻 / 世帯） */
+.view-toggle { display: flex; gap: 2px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); border-radius: 40px; padding: 3px; }
+.view-toggle button { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.8rem; font-weight: 700; padding: 5px 13px; border-radius: 40px; transition: all 0.15s; white-space: nowrap; }
+.view-toggle button:hover { color: var(--text-primary); }
+.view-toggle button.active { background: rgba(255,255,255,0.14); color: #fff; }
+.view-toggle button.active[data-vp="自分"] { color: var(--self-col); }
+.view-toggle button.active[data-vp="妻"] { color: var(--wife-col); }
+@media (max-width: 540px) { .view-toggle button { padding: 5px 10px; font-size: 0.76rem; } }
+
+/* 単一人物ビュー時：非該当ブロックを隠し、残りを全幅に */
+body[data-view="自分"] .s-card.total, body[data-view="自分"] .s-card.wife,
+body[data-view="妻"]  .s-card.total, body[data-view="妻"]  .s-card.self { display: none; }
+body[data-view="自分"] .summary-row, body[data-view="妻"] .summary-row { grid-template-columns: 1fr; }
+body[data-view="自分"] .streak-card.wife, body[data-view="妻"] .streak-card.self { display: none; }
+body[data-view="自分"] .streak-row, body[data-view="妻"] .streak-row { grid-template-columns: 1fr; }
+body[data-view="自分"] .cal-col-wife, body[data-view="妻"] .cal-col-self { display: none; }
+body[data-view="自分"] .cal-persons, body[data-view="妻"] .cal-persons { grid-template-columns: 1fr; }
+body[data-view="自分"] .mix-wife, body[data-view="妻"] .mix-self { display: none; }
+
+/* スクロール中も常時見える 各社カラー凡例（タブ直下に固定） */
+.svc-legend-bar {
+  position: sticky; top: 49px; z-index: 150;
+  display: flex; flex-wrap: wrap; gap: 7px 14px; align-items: center;
+  background: rgba(13,13,18,0.92); backdrop-filter: blur(9px);
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 8px 13px; margin-bottom: 16px;
+}
+.svc-legend-bar .lg { display: flex; align-items: center; gap: 5px; font-size: 0.72rem; color: var(--text-secondary); font-weight: 600; white-space: nowrap; }
+.svc-legend-bar .lg .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+@media (max-width: 540px) {
+  .svc-legend-bar { top: 47px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .svc-legend-bar::-webkit-scrollbar { display: none; }
+}
+
 /* FORM */
 .form-wrap { max-width: 560px; margin: 0 auto; }
 .form-card {
@@ -623,6 +657,11 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     <span style="opacity:0.5;font-size:0.85rem">月</span>
     <button onclick="changeMonth(1)" title="翌月">›</button>
   </div>
+  <div class="view-toggle" id="viewToggle" title="表示する対象を切り替え（端末ごとに記憶）">
+    <button data-vp="自分" onclick="setView('自分')">自分</button>
+    <button data-vp="妻" onclick="setView('妻')">妻</button>
+    <button data-vp="世帯" onclick="setView('世帯')">世帯</button>
+  </div>
 </div>
 
 <div class="tabs">
@@ -638,6 +677,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
   <!-- DASHBOARD -->
   <div id="tab-dashboard" class="tab-panel active">
+    <div class="svc-legend-bar" id="svcLegendBar"></div>
     <div class="summary-row">
       <div class="s-card total">
         <div class="s-label">今月の合計売上</div>
@@ -681,12 +721,12 @@ tr:hover td { background: rgba(255,255,255,0.02); }
         </div>
       </div>
       <div class="cal-persons">
-        <div class="cal-person-col">
+        <div class="cal-person-col cal-col-self">
           <div class="cal-person-hd p-self">自分</div>
           <div class="stamp-palette-wrap"><div class="stamp-palette" id="stampPaletteSelf"></div></div>
           <div class="cal-grid" id="calSelf"></div>
         </div>
-        <div class="cal-person-col">
+        <div class="cal-person-col cal-col-wife">
           <div class="cal-person-hd p-wife">妻</div>
           <div class="stamp-palette-wrap"><div class="stamp-palette" id="stampPaletteWife"></div></div>
           <div class="cal-grid" id="calWife"></div>
@@ -711,11 +751,11 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
     <div class="chart-card mix-card">
       <h3>直近12ヶ月 サービス別 売上構成比（各社の稼働シェア）</h3>
-      <div class="mix-block">
+      <div class="mix-block mix-self">
         <div class="mix-person p-self">自分</div>
         <div class="chart-scroll"><div class="mix-wrap"><canvas id="mixChartSelf"></canvas></div></div>
       </div>
-      <div class="mix-block">
+      <div class="mix-block mix-wife">
         <div class="mix-person p-wife">妻</div>
         <div class="chart-scroll"><div class="mix-wrap"><canvas id="mixChartWife"></canvas></div></div>
       </div>
@@ -1046,6 +1086,31 @@ let dailyChart = null, pieChart = null, annualChart = null;
 let mixChartSelf = null, mixChartWife = null;
 let entriesRef, expensesRef;
 
+// ── 対象ビュー（自分 / 妻 / 世帯）。端末ごとにlocalStorageで記憶 ──
+let viewPerson = localStorage.getItem('viewPerson') || '世帯';
+// 表示対象の人物リスト（世帯なら2人、単一なら1人）
+function VP() { return viewPerson === '世帯' ? ['自分','妻'] : [viewPerson]; }
+function inView(person) { return viewPerson === '世帯' || person === viewPerson; }
+
+function applyViewToggleUI() {
+  document.body.dataset.view = viewPerson;
+  document.querySelectorAll('#viewToggle button').forEach(b => {
+    b.classList.toggle('active', b.dataset.vp === viewPerson);
+  });
+}
+
+function setView(p) {
+  viewPerson = p;
+  localStorage.setItem('viewPerson', p);
+  applyViewToggleUI();
+  // 現在アクティブなタブを再描画
+  if (document.getElementById('tab-dashboard').classList.contains('active')) renderDashboard();
+  if (document.getElementById('tab-expense').classList.contains('active'))   renderExpense();
+  if (document.getElementById('tab-history').classList.contains('active'))   renderHistory();
+  if (document.getElementById('tab-annual').classList.contains('active'))    renderAnnual();
+  if (document.getElementById('tab-export').classList.contains('active'))    renderYearly();
+}
+
 function save() {
   const data = {};
   entries.forEach(e => { data[e.id] = e; });
@@ -1120,7 +1185,16 @@ function countUp(el, target, duration = 650) {
   requestAnimationFrame(tick);
 }
 
+function renderServiceLegend() {
+  const bar = document.getElementById('svcLegendBar');
+  if (!bar) return;
+  bar.innerHTML = Object.entries(activeServices(curYear)).map(([svc,cfg]) =>
+    `<span class="lg"><span class="dot" style="background:${cfg.color}"></span>${svc}</span>`
+  ).join('');
+}
+
 function renderDashboard() {
+  renderServiceLegend();
   const data = monthEntries();
   const total = data.reduce((s,e)=>s+e.amount,0);
   const totalD = data.reduce((s,e)=>s+e.deliveries,0);
@@ -1140,44 +1214,41 @@ function renderDashboard() {
   countUp(document.getElementById('wifeAmt'), wifeAmt);
   document.getElementById('wifeDel').textContent   = `配達 ${wifeDel}件 · 単価 ${unit(wifeAmt, wifeDel)}`;
 
-  // Service cards
+  // Service cards（対象ビューの人物だけ表示）
+  const vps = VP();
   const curSvcs = activeServices(curYear);
   const g = document.getElementById('svcCards');
   g.innerHTML = Object.entries(curSvcs).map(([svc,cfg])=>{
-    const sd   = data.filter(e=>e.service===svc);
-    const yD   = sd.filter(e=>e.person==='自分');
-    const wD   = sd.filter(e=>e.person==='妻');
-    const yAmt = yD.reduce((s,e)=>s+e.amount,0);
-    const wAmt = wD.reduce((s,e)=>s+e.amount,0);
-    const yDel = yD.reduce((s,e)=>s+e.deliveries,0);
-    const wDel = wD.reduce((s,e)=>s+e.deliveries,0);
-    const tot  = yAmt + wAmt;
-    const totD = yDel + wDel;
+    const sd    = data.filter(e=>e.service===svc);
+    const amtP  = p => sd.filter(e=>e.person===p).reduce((s,e)=>s+e.amount,0);
+    const delP  = p => sd.filter(e=>e.person===p).reduce((s,e)=>s+e.deliveries,0);
+    const rows  = vps.map(p=>{
+      const cls = p==='自分'?'p-self':'p-wife';
+      return `<div class="svc-split-row">
+          <span class="svc-split-label ${cls}">${p}</span>
+          <span class="svc-split-amt" style="color:${cfg.color}">${fmt(amtP(p))}</span>
+          <span class="svc-split-del">${delP(p)}件</span>
+        </div>`;
+    }).join('');
+    const tot  = vps.reduce((s,p)=>s+amtP(p),0);
+    const totD = vps.reduce((s,p)=>s+delP(p),0);
+    const totBar = viewPerson === '世帯'
+      ? `<div class="svc-total-bar">合計 ${fmt(tot)} · ${totD}件</div>` : '';
     return `<div class="svc-card" style="border-left-color:${cfg.color}">
       <div class="svc-hd">
         ${svcLogoImg(cfg, 'svc-logo')}
         <div class="svc-name">${svc}${svc==='ロケットナウ'?' <span style="font-size:0.65rem;color:var(--text-muted)">手動</span>':''}</div>
       </div>
-      <div class="svc-split">
-        <div class="svc-split-row">
-          <span class="svc-split-label p-self">自分</span>
-          <span class="svc-split-amt" style="color:${cfg.color}">${fmt(yAmt)}</span>
-          <span class="svc-split-del">${yDel}件</span>
-        </div>
-        <div class="svc-split-row">
-          <span class="svc-split-label p-wife">妻</span>
-          <span class="svc-split-amt" style="color:${cfg.color}">${fmt(wAmt)}</span>
-          <span class="svc-split-del">${wDel}件</span>
-        </div>
-      </div>
-      <div class="svc-total-bar">合計 ${fmt(tot)} · ${totD}件</div>
+      <div class="svc-split">${rows}</div>
+      ${totBar}
     </div>`;
   }).join('');
 
-  // 損益ストリップ（今月：売上 − 経費 = 所得）
-  const mExp = monthExpenses().reduce((s,e) => s + expBusiness(e), 0);
-  const income = total - mExp;
-  document.getElementById('plRev').textContent = fmt(total);
+  // 損益ストリップ（今月：売上 − 経費 = 所得。対象ビューの人物のみ集計）
+  const vRev = data.filter(e=>inView(e.person)).reduce((s,e)=>s+e.amount,0);
+  const mExp = monthExpenses().filter(e=>inView(e.person)).reduce((s,e) => s + expBusiness(e), 0);
+  const income = vRev - mExp;
+  document.getElementById('plRev').textContent = fmt(vRev);
   document.getElementById('plExp').textContent = '−' + fmt(mExp);
   const incEl = document.getElementById('plInc');
   incEl.textContent = fmt(income);
@@ -1524,36 +1595,31 @@ function renderCharts(data) {
   const tickColor = '#666';
   const maxVal = Math.max(...selfArr, ...wifeArr, 1000);
 
+  // 対象ビューの人物だけ系列を出す
+  const vps = VP();
+  const seriesDef = {
+    '自分': { arr: selfArr, bg: 'rgba(124,107,255,0.72)', dl: 'rgba(180,170,255,0.95)' },
+    '妻':   { arr: wifeArr, bg: 'rgba(255,107,157,0.72)', dl: 'rgba(255,160,200,0.95)' },
+  };
+  const dailyDatasets = vps.map(p => ({
+    label: p, data: seriesDef[p].arr,
+    backgroundColor: seriesDef[p].bg, borderRadius: 4, borderSkipped: false,
+    barPercentage: 0.42, categoryPercentage: 0.85,
+    datalabels: {
+      color: seriesDef[p].dl, anchor: 'end', align: 'top',
+      formatter: v => v > 0 ? (v>=1000?(v/1000).toFixed(1)+'k':v) : '',
+      font: { size: 9, weight: '600' }, padding: { bottom: 2 },
+      display: ctx => ctx.dataset.data[ctx.dataIndex] > 0,
+    }
+  }));
+
   if (dailyChart) dailyChart.destroy();
   dailyChart = new Chart(document.getElementById('dailyChart'), {
     type: 'bar',
     plugins: [ChartDataLabels],
     data: {
       labels,
-      datasets: [
-        {
-          label:'自分', data:selfArr,
-          backgroundColor:'rgba(124,107,255,0.72)', borderRadius:4, borderSkipped:false,
-          barPercentage:0.42, categoryPercentage:0.85,
-          datalabels:{
-            color:'rgba(180,170,255,0.95)', anchor:'end', align:'top',
-            formatter: v => v > 0 ? (v>=1000?(v/1000).toFixed(1)+'k':v) : '',
-            font:{ size:9, weight:'600' }, padding:{ bottom:2 },
-            display: ctx => ctx.dataset.data[ctx.dataIndex] > 0,
-          }
-        },
-        {
-          label:'妻', data:wifeArr,
-          backgroundColor:'rgba(255,107,157,0.72)', borderRadius:4, borderSkipped:false,
-          barPercentage:0.42, categoryPercentage:0.85,
-          datalabels:{
-            color:'rgba(255,160,200,0.95)', anchor:'end', align:'top',
-            formatter: v => v > 0 ? (v>=1000?(v/1000).toFixed(1)+'k':v) : '',
-            font:{ size:9, weight:'600' }, padding:{ bottom:2 },
-            display: ctx => ctx.dataset.data[ctx.dataIndex] > 0,
-          }
-        },
-      ]
+      datasets: dailyDatasets
     },
     options: {
       responsive:true, maintainAspectRatio:false,
@@ -1574,7 +1640,7 @@ function renderCharts(data) {
     }
   });
 
-  const svcTotals = Object.keys(curSvcs).map(s=>data.filter(e=>e.service===s).reduce((sum,e)=>sum+e.amount,0));
+  const svcTotals = Object.keys(curSvcs).map(s=>data.filter(e=>e.service===s && inView(e.person)).reduce((sum,e)=>sum+e.amount,0));
   const svcLabels = Object.keys(curSvcs);
   const svcColors = Object.values(curSvcs).map(s=>s.color);
   if (pieChart) { pieChart.destroy(); pieChart = null; }
@@ -1693,35 +1759,36 @@ function delExpense(id) {
 
 function renderExpense() {
   document.getElementById('expYearLabel').textContent = curYear + '年';
-  const data = expenses.filter(e => e.date.startsWith(curYear + ''))
+  const vps = VP();
+  const col = p => p === '自分' ? 'self' : 'wife';
+  // 単一ビューなら入力フォームの名前も合わせておく
+  if (viewPerson !== '世帯') { const es = document.getElementById('ePerson'); if (es) es.value = viewPerson; }
+
+  const data = expenses.filter(e => e.date.startsWith(curYear + '') && inView(e.person))
                        .sort((a,b) => b.date.localeCompare(a.date));
 
   const total = data.reduce((s,e) => s + expBusiness(e), 0);
   document.getElementById('expTitle').textContent = `経費一覧 — ${curYear}年 計上額合計 ${fmt(total)}`;
 
-  // 科目別集計（人物別の計上額）
-  let sum = `<table>
-    <thead><tr><th>科目</th><th style="color:var(--self-col)">自分</th><th style="color:var(--wife-col)">妻</th><th>計</th></tr></thead>
-    <tbody>`;
-  let gSelf = 0, gWife = 0;
+  // 科目別集計（対象ビューの人物の列だけ）
+  const showTot = vps.length > 1;
+  const colHead = vps.map(p => `<th style="color:var(--${col(p)}-col)">${p}</th>`).join('');
+  let sum = `<table><thead><tr><th>科目</th>${colHead}${showTot ? '<th>計</th>' : ''}</tr></thead><tbody>`;
+  const gTot = {}; vps.forEach(p => gTot[p] = 0);
+  let any = false;
   EXP_CAT_KEYS.forEach(cat => {
     const cd = data.filter(e => e.category === cat);
-    const s = cd.filter(e => e.person === '自分').reduce((a,e) => a + expBusiness(e), 0);
-    const w = cd.filter(e => e.person === '妻').reduce((a,e) => a + expBusiness(e), 0);
-    if (!s && !w) return;
-    gSelf += s; gWife += w;
-    sum += `<tr><td>${cat}</td>
-      <td style="color:var(--self-col)">${s ? fmt(s) : '-'}</td>
-      <td style="color:var(--wife-col)">${w ? fmt(w) : '-'}</td>
-      <td style="font-weight:700">${fmt(s + w)}</td></tr>`;
+    const vals = vps.map(p => cd.filter(e => e.person === p).reduce((a,e) => a + expBusiness(e), 0));
+    if (vals.every(v => !v)) return;
+    any = true;
+    vals.forEach((v,i) => gTot[vps[i]] += v);
+    const rowTot = vals.reduce((a,b) => a+b, 0);
+    sum += `<tr><td>${cat}</td>${vps.map((p,i) => `<td style="color:var(--${col(p)}-col)">${vals[i] ? fmt(vals[i]) : '-'}</td>`).join('')}${showTot ? `<td style="font-weight:700">${fmt(rowTot)}</td>` : ''}</tr>`;
   });
-  sum += `<tr style="border-top:2px solid var(--border)">
-    <td style="font-weight:700">合計</td>
-    <td style="font-weight:700;color:var(--self-col)">${fmt(gSelf)}</td>
-    <td style="font-weight:700;color:var(--wife-col)">${fmt(gWife)}</td>
-    <td style="font-weight:800;color:#ff8c6b">${fmt(gSelf + gWife)}</td></tr></tbody></table>`;
+  const gSum = vps.reduce((a,p) => a + gTot[p], 0);
+  sum += `<tr style="border-top:2px solid var(--border)"><td style="font-weight:700">合計</td>${vps.map(p => `<td style="font-weight:700;color:var(--${col(p)}-col)">${fmt(gTot[p])}</td>`).join('')}${showTot ? `<td style="font-weight:800;color:#ff8c6b">${fmt(gSum)}</td>` : ''}</tr></tbody></table>`;
   document.getElementById('expSummary').innerHTML =
-    (gSelf || gWife) ? sum : `<div class="empty" style="padding:20px"><p>${curYear}年の経費はまだありません</p></div>`;
+    any ? sum : `<div class="empty" style="padding:20px"><p>${curYear}年の経費はまだありません</p></div>`;
 
   // 明細
   const tbody = document.getElementById('expBody');
@@ -1770,10 +1837,16 @@ function renderHistory() {
   const fp = document.getElementById('fPerson').value;
   const fs = document.getElementById('fService').value;
 
+  // 対象ビューが単一なら、その人物に固定（履歴の名前フィルタより優先）
+  const fpSel = document.getElementById('fPerson');
+  if (viewPerson !== '世帯') { fpSel.value = viewPerson; fpSel.disabled = true; fpSel.style.opacity = '0.5'; }
+  else { fpSel.disabled = false; fpSel.style.opacity = ''; }
+  const effPerson = viewPerson !== '世帯' ? viewPerson : fp;
+
   let data = [...entries];
   if (fy) data = data.filter(e => e.date.startsWith(fy));
   if (fm) data = data.filter(e => e.date.slice(5,7) === fm);
-  if (fp) data = data.filter(e=>e.person===fp);
+  if (effPerson) data = data.filter(e=>e.person===effPerson);
   if (fs) data = data.filter(e=>e.service===fs);
   data.sort((a,b)=>b.date.localeCompare(a.date));
 
@@ -2107,7 +2180,7 @@ function renderAnnual() {
 function renderPL(year) {
   const el = document.getElementById('annualPL');
   if (!el) return;
-  el.innerHTML = ['自分','妻'].map(person => {
+  el.innerHTML = VP().map(person => {
     const pcls = person === '自分' ? 'p-self' : 'p-wife';
     const rev = entries.filter(e => e.person === person && e.date.startsWith(year + ''))
                        .reduce((s,e) => s + e.amount, 0);
@@ -2325,6 +2398,7 @@ entriesRef = firebase.database().ref('entries');
 expensesRef = firebase.database().ref('expenses');
 renderStampPalettes();
 populateCategorySelect();
+applyViewToggleUI();
 
 // 経費のリアルタイム購読
 expensesRef.on('value', snapshot => {

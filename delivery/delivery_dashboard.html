@@ -322,6 +322,12 @@ body {
 .chart-wrap-pie { position: relative; height: 280px; width: 100%; }
 @media (max-width: 700px) { .chart-wrap-pie { height: 240px; } }
 
+/* 直近12ヶ月 構成比グラフ */
+.mix-card { margin-bottom: 20px; }
+.mix-block + .mix-block { margin-top: 16px; }
+.mix-person { font-size: 0.75rem; font-weight: 700; margin-bottom: 6px; }
+.mix-wrap { position: relative; height: 200px; min-width: 560px; }
+
 /* FORM */
 .form-wrap { max-width: 560px; margin: 0 auto; }
 .form-card {
@@ -702,6 +708,18 @@ tr:hover td { background: rgba(255,255,255,0.02); }
         <div class="chart-wrap-pie"><canvas id="pieChart"></canvas></div>
       </div>
     </div>
+
+    <div class="chart-card mix-card">
+      <h3>直近12ヶ月 サービス別 売上構成比（各社の稼働シェア）</h3>
+      <div class="mix-block">
+        <div class="mix-person p-self">自分</div>
+        <div class="chart-scroll"><div class="mix-wrap"><canvas id="mixChartSelf"></canvas></div></div>
+      </div>
+      <div class="mix-block">
+        <div class="mix-person p-wife">妻</div>
+        <div class="chart-scroll"><div class="mix-wrap"><canvas id="mixChartWife"></canvas></div></div>
+      </div>
+    </div>
   </div>
 
   <!-- INPUT -->
@@ -1025,6 +1043,7 @@ let expenses = [];
 let curYear  = new Date().getFullYear();
 let curMonth = new Date().getMonth() + 1;
 let dailyChart = null, pieChart = null, annualChart = null;
+let mixChartSelf = null, mixChartWife = null;
 let entriesRef, expensesRef;
 
 function save() {
@@ -1167,6 +1186,82 @@ function renderDashboard() {
   renderStreak();
   renderCalendar(data);
   renderCharts(data);
+  renderMixCharts();
+}
+
+// ── 直近12ヶ月 サービス別 売上構成比（100%積み上げ・人物別） ──
+function last12MonthKeys() {
+  // 実際の当月を起点に直近12ヶ月（常に最新の1年）。月ナビとは独立。
+  const now = new Date();
+  const arr = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    arr.push({ y: d.getFullYear(), m: d.getMonth() + 1 });
+  }
+  return arr;
+}
+
+function buildMixData(person) {
+  const months = last12MonthKeys();
+  const labels = months.map(mm => `${String(mm.y).slice(2)}/${mm.m}`);
+  const datasets = [];
+  Object.keys(SERVICES).forEach(svc => {
+    const yen = [], pct = [];
+    let has = false;
+    months.forEach(mm => {
+      const prefix = `${mm.y}-${String(mm.m).padStart(2,'0')}`;
+      const rows = entries.filter(e => e.person === person && e.date.startsWith(prefix));
+      const monthTotal = rows.reduce((s,e) => s + e.amount, 0);
+      const svcAmt = rows.filter(e => e.service === svc).reduce((s,e) => s + e.amount, 0);
+      yen.push(svcAmt);
+      pct.push(monthTotal > 0 ? svcAmt / monthTotal * 100 : 0);
+      if (svcAmt) has = true;
+    });
+    if (!has) return;  // その人が12ヶ月間一度も使っていないサービスは出さない
+    datasets.push({ label: svc, data: pct, _yen: yen, backgroundColor: SERVICES[svc].color, borderWidth: 0, stack: 's' });
+  });
+  return { labels, datasets };
+}
+
+function makeMixChart(canvasId, person) {
+  const { labels, datasets } = buildMixData(person);
+  return new Chart(document.getElementById(canvasId), {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 700, easing: 'easeOutQuart' },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        datalabels: { display: false },
+        legend: { labels: { color: '#aaa', boxWidth: 11, padding: 8, font: { size: 10 } } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const yen = ctx.dataset._yen?.[ctx.dataIndex] || 0;
+              if (!yen && ctx.parsed.y === 0) return null;  // 0の凡例行は省く
+              return `${ctx.dataset.label}: ${Math.round(ctx.parsed.y)}%（${fmt(yen)}）`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { stacked: true, ticks: { color: '#666', font: { size: 10 }, maxRotation: 0 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: {
+          stacked: true, min: 0, max: 100,
+          ticks: { color: '#666', callback: v => v + '%', font: { size: 10 }, stepSize: 25 },
+          grid: { color: 'rgba(255,255,255,0.05)' }
+        }
+      }
+    }
+  });
+}
+
+function renderMixCharts() {
+  if (mixChartSelf) { mixChartSelf.destroy(); mixChartSelf = null; }
+  if (mixChartWife) { mixChartWife.destroy(); mixChartWife = null; }
+  mixChartSelf = makeMixChart('mixChartSelf', '自分');
+  mixChartWife = makeMixChart('mixChartWife', '妻');
 }
 
 // ── Stamp ──

@@ -140,7 +140,20 @@ body {
   position: relative;
   overflow: hidden;
   transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 10px;
 }
+.s-main { min-width: 0; }
+.s-proj { text-align: right; flex-shrink: 0; }
+.s-proj:empty { display: none; }
+.s-proj-label { font-size: 0.64rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+.s-proj-amt { font-size: 1.2rem; font-weight: 800; line-height: 1; opacity: 0.92; }
+.s-card.total .s-proj-amt { color: var(--accent); }
+.s-card.self  .s-proj-amt { color: var(--self-col); }
+.s-card.wife  .s-proj-amt { color: var(--wife-col); }
+.s-proj-sub { font-size: 0.64rem; color: var(--text-muted); margin-top: 4px; }
 .s-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
 .s-card::before {
   content: '';
@@ -706,19 +719,28 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     <div class="svc-legend-bar" id="svcLegendBar"></div>
     <div class="summary-row">
       <div class="s-card total">
-        <div class="s-label">今月の合計売上</div>
-        <div class="s-amt" id="totalAmt">¥0</div>
-        <div class="s-sub" id="totalDel">配達 0件 · 稼働 0日</div>
+        <div class="s-main">
+          <div class="s-label">今月の合計売上</div>
+          <div class="s-amt" id="totalAmt">¥0</div>
+          <div class="s-sub" id="totalDel">配達 0件 · 稼働 0日</div>
+        </div>
+        <div class="s-proj" id="totalProj"></div>
       </div>
       <div class="s-card self">
-        <div class="s-label">自分</div>
-        <div class="s-amt" id="selfAmt">¥0</div>
-        <div class="s-sub" id="selfDel">配達 0件</div>
+        <div class="s-main">
+          <div class="s-label">自分</div>
+          <div class="s-amt" id="selfAmt">¥0</div>
+          <div class="s-sub" id="selfDel">配達 0件</div>
+        </div>
+        <div class="s-proj" id="selfProj"></div>
       </div>
       <div class="s-card wife">
-        <div class="s-label">妻</div>
-        <div class="s-amt" id="wifeAmt">¥0</div>
-        <div class="s-sub" id="wifeDel">配達 0件</div>
+        <div class="s-main">
+          <div class="s-label">妻</div>
+          <div class="s-amt" id="wifeAmt">¥0</div>
+          <div class="s-sub" id="wifeDel">配達 0件</div>
+        </div>
+        <div class="s-proj" id="wifeProj"></div>
       </div>
     </div>
 
@@ -1309,6 +1331,23 @@ function renderDashboard() {
   const wifeDel = wife.reduce((s,e)=>s+e.deliveries,0);
   countUp(document.getElementById('wifeAmt'), wifeAmt);
   document.getElementById('wifeDel').textContent   = `配達 ${wifeDel}件 · 単価 ${unit(wifeAmt, wifeDel)}`;
+
+  // 当月の着地見込み（今のペースで日割り。当月を表示しているときだけ表示）
+  const _today = new Date();
+  const isCurMonth = (curYear === _today.getFullYear() && curMonth === _today.getMonth() + 1);
+  const daysInMonth = new Date(curYear, curMonth, 0).getDate();
+  const elapsed = _today.getDate();
+  const remaining = daysInMonth - elapsed;
+  const setProj = (id, amount) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (!isCurMonth || elapsed <= 0 || remaining <= 0 || amount <= 0) { el.innerHTML = ''; return; }
+    const projected = Math.round(amount / elapsed * daysInMonth);
+    el.innerHTML = `<div class="s-proj-label">着地見込み</div><div class="s-proj-amt">${fmt(projected)}</div><div class="s-proj-sub">残${remaining}日・日割</div>`;
+  };
+  setProj('totalProj', total);
+  setProj('selfProj', selfAmt);
+  setProj('wifeProj', wifeAmt);
 
   // Service cards（対象ビューの人物だけ表示）
   const vps = VP();

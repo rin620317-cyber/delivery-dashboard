@@ -169,6 +169,8 @@ body {
 .s-card.self .s-amt { color: var(--self-col); }
 .s-card.wife .s-amt { color: var(--wife-col); }
 .s-card .s-sub { font-size: 0.8rem; color: var(--text-muted); }
+.s-sub .s-last { color: var(--text-secondary); font-weight: 700; }
+.s-sub .s-last.stale { color: #FFB300; }
 
 /* SERVICE CARDS */
 .svc-row {
@@ -374,23 +376,6 @@ body[data-view="自分"] .mix-wife, body[data-view="妻"] .mix-self { display: n
   .svc-legend-bar { top: 47px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .svc-legend-bar::-webkit-scrollbar { display: none; }
 }
-
-/* 最近の記録（ダッシュボード上部・アプリを開いてすぐ確認用） */
-.recent-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 13px 15px; margin-bottom: 16px; }
-.recent-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-.recent-head h3 { font-size: 0.85rem; color: var(--text-secondary); font-weight: 600; }
-.recent-last { font-size: 0.78rem; font-weight: 800; color: var(--accent); white-space: nowrap; }
-.recent-list { display: flex; flex-direction: column; }
-.recent-row { display: flex; align-items: center; gap: 8px; padding: 7px 2px; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.82rem; }
-.recent-row:last-child { border-bottom: none; }
-.recent-row.newday { border-top: 1px dashed rgba(255,255,255,0.10); }
-.recent-date { width: 62px; flex-shrink: 0; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-.recent-person { width: 20px; flex-shrink: 0; font-weight: 700; font-size: 0.78rem; text-align: center; }
-.recent-svc { flex: 1; min-width: 0; display: flex; align-items: center; gap: 5px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.recent-svc .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.recent-amt { flex-shrink: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
-.recent-more { background: none; border: none; color: var(--text-secondary); font-size: 0.78rem; cursor: pointer; padding: 9px 0 2px; width: 100%; text-align: center; }
-.recent-more:hover { color: var(--text-primary); }
 
 /* 未確定クエスト（ダッシュボードのバー） */
 .quest-pending-bar {
@@ -734,16 +719,6 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   <!-- DASHBOARD -->
   <div id="tab-dashboard" class="tab-panel active">
     <div class="svc-legend-bar" id="svcLegendBar"></div>
-
-    <!-- 最近の記録（アプリを開いてすぐ「前回どこまで入力したか」を確認） -->
-    <div class="recent-card" id="recentCard">
-      <div class="recent-head">
-        <h3>📋 最近の記録</h3>
-        <span class="recent-last" id="recentLast"></span>
-      </div>
-      <div class="recent-list" id="recentList"></div>
-      <button class="recent-more" onclick="switchTab('history', document.querySelector('.tab-btn[onclick*=history]'))">履歴をすべて見る ›</button>
-    </div>
 
     <div class="summary-row">
       <div class="s-card total">
@@ -1230,8 +1205,12 @@ let mixChartSelf = null, mixChartWife = null;
 let entriesRef, expensesRef, questsRef;
 let quests = [];
 
+// localStorage 安全ラッパー（プライベートモード等でストレージ無効でもアプリを止めない）
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
 // ── 対象ビュー（自分 / 妻 / 世帯）。端末ごとにlocalStorageで記憶 ──
-let viewPerson = localStorage.getItem('viewPerson') || '世帯';
+let viewPerson = lsGet('viewPerson') || '世帯';
 // 表示対象の人物リスト（世帯なら2人、単一なら1人）
 function VP() { return viewPerson === '世帯' ? ['自分','妻'] : [viewPerson]; }
 function inView(person) { return viewPerson === '世帯' || person === viewPerson; }
@@ -1245,7 +1224,7 @@ function applyViewToggleUI() {
 
 function setView(p) {
   viewPerson = p;
-  localStorage.setItem('viewPerson', p);
+  lsSet('viewPerson', p);
   applyViewToggleUI();
   // 現在アクティブなタブを再描画
   if (document.getElementById('tab-dashboard').classList.contains('active')) renderDashboard();
@@ -1339,47 +1318,8 @@ function renderServiceLegend() {
   ).join('');
 }
 
-// 最近の記録（対象ビューに連動。最終記録日＝前回どこまで入力したかが一目でわかる）
-function renderRecent() {
-  const card = document.getElementById('recentCard');
-  if (!card) return;
-  const md  = d => `${parseInt(d.slice(5,7))}/${parseInt(d.slice(8,10))}`;
-  const dow = d => ['日','月','火','水','木','金','土'][new Date(d + 'T00:00:00').getDay()];
-
-  const data = entries.filter(e => inView(e.person))
-    .slice().sort((a,b) => b.date.localeCompare(a.date) || String(b.id).localeCompare(String(a.id)));
-
-  const lastEl = document.getElementById('recentLast');
-  const listEl = document.getElementById('recentList');
-  if (!data.length) {
-    lastEl.textContent = '';
-    listEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.8rem;padding:6px 0">まだ記録がありません</div>';
-    return;
-  }
-
-  const latest = data[0].date;
-  const t = new Date();
-  const diff = Math.round((new Date(t.getFullYear(), t.getMonth(), t.getDate()) - new Date(latest + 'T00:00:00')) / 86400000);
-  const ago = diff <= 0 ? '今日' : diff === 1 ? '昨日' : `${diff}日前`;
-  lastEl.textContent = `最終 ${md(latest)}(${dow(latest)})・${ago}`;
-
-  let prevDate = null;
-  listEl.innerHTML = data.slice(0, 10).map(e => {
-    const cfg = SERVICES[e.service] || { color: '#888' };
-    const newday = prevDate && prevDate !== e.date ? ' newday' : '';
-    prevDate = e.date;
-    return `<div class="recent-row${newday}">
-      <span class="recent-date">${md(e.date)}(${dow(e.date)})</span>
-      <span class="recent-person ${e.person==='自分'?'p-self':'p-wife'}">${e.person==='自分'?'自':'妻'}</span>
-      <span class="recent-svc"><span class="dot" style="background:${cfg.color}"></span>${e.service}</span>
-      <span class="recent-amt">${fmt(e.amount)}</span>
-    </div>`;
-  }).join('');
-}
-
 function renderDashboard() {
   renderServiceLegend();
-  renderRecent();
   const data = monthEntries();
   const total = data.reduce((s,e)=>s+e.amount,0);
   const totalD = data.reduce((s,e)=>s+e.deliveries,0);
@@ -1388,16 +1328,29 @@ function renderDashboard() {
   const wife = data.filter(e=>e.person==='妻');
 
   const unit = (amt, del) => del > 0 ? fmt(Math.round(amt / del)) : '—';
+  // 最終稼働日（全期間でその人が最後に記録した日）＝どこまでアップロード済みかの目印
+  const _t = new Date();
+  const _todayStr = `${_t.getFullYear()}-${String(_t.getMonth()+1).padStart(2,'0')}-${String(_t.getDate()).padStart(2,'0')}`;
+  const lastWorkHtml = (person) => {
+    const ds = entries.filter(e => e.person === person && (e.deliveries > 0 || e.amount > 0)).map(e => e.date);
+    if (!ds.length) return '';
+    const last = ds.sort().at(-1);
+    const md = `${parseInt(last.slice(5,7))}/${parseInt(last.slice(8,10))}`;
+    const diff = Math.round((new Date(_todayStr + 'T00:00:00') - new Date(last + 'T00:00:00')) / 86400000);
+    const stale = diff >= 3 ? ' stale' : '';   // 3日以上あいたらオレンジで軽く注意喚起
+    return ` · <span class="s-last${stale}">最終稼働 ${md}</span>`;
+  };
+
   countUp(document.getElementById('totalAmt'), total);
   document.getElementById('totalDel').textContent  = `配達 ${totalD}件 · 稼働 ${days}日 · 単価 ${unit(total, totalD)}`;
   const selfAmt = self.reduce((s,e)=>s+e.amount,0);
   const selfDel = self.reduce((s,e)=>s+e.deliveries,0);
   countUp(document.getElementById('selfAmt'), selfAmt);
-  document.getElementById('selfDel').textContent   = `配達 ${selfDel}件 · 単価 ${unit(selfAmt, selfDel)}`;
+  document.getElementById('selfDel').innerHTML   = `配達 ${selfDel}件 · 単価 ${unit(selfAmt, selfDel)}` + lastWorkHtml('自分');
   const wifeAmt = wife.reduce((s,e)=>s+e.amount,0);
   const wifeDel = wife.reduce((s,e)=>s+e.deliveries,0);
   countUp(document.getElementById('wifeAmt'), wifeAmt);
-  document.getElementById('wifeDel').textContent   = `配達 ${wifeDel}件 · 単価 ${unit(wifeAmt, wifeDel)}`;
+  document.getElementById('wifeDel').innerHTML   = `配達 ${wifeDel}件 · 単価 ${unit(wifeAmt, wifeDel)}` + lastWorkHtml('妻');
 
   // 当月の着地見込み（今のペースで日割り。当月を表示しているときだけ表示）
   const _today = new Date();
@@ -1551,10 +1504,10 @@ const ALL_STAMPS = [
   '🚴','🛵','🚗','🏃','🚶','⚽',
   '🏆','🎯','💪','🔥','💎','🦄',
 ];
-let stampDays = JSON.parse(localStorage.getItem('stampDays') || '{}');
+let stampDays = JSON.parse(lsGet('stampDays') || '{}');
 let activeStamp = null, activeStampPerson = null;
 
-function saveStampDays() { localStorage.setItem('stampDays', JSON.stringify(stampDays)); }
+function saveStampDays() { lsSet('stampDays', JSON.stringify(stampDays)); }
 function getStampForDay(person, date) { return stampDays[`${person}_${date}`] || null; }
 
 function applyStampToDay(person, date, stamp) {

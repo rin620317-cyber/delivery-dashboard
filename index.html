@@ -375,6 +375,23 @@ body[data-view="自分"] .mix-wife, body[data-view="妻"] .mix-self { display: n
   .svc-legend-bar::-webkit-scrollbar { display: none; }
 }
 
+/* 最近の記録（ダッシュボード上部・アプリを開いてすぐ確認用） */
+.recent-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 13px 15px; margin-bottom: 16px; }
+.recent-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.recent-head h3 { font-size: 0.85rem; color: var(--text-secondary); font-weight: 600; }
+.recent-last { font-size: 0.78rem; font-weight: 800; color: var(--accent); white-space: nowrap; }
+.recent-list { display: flex; flex-direction: column; }
+.recent-row { display: flex; align-items: center; gap: 8px; padding: 7px 2px; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.82rem; }
+.recent-row:last-child { border-bottom: none; }
+.recent-row.newday { border-top: 1px dashed rgba(255,255,255,0.10); }
+.recent-date { width: 62px; flex-shrink: 0; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.recent-person { width: 20px; flex-shrink: 0; font-weight: 700; font-size: 0.78rem; text-align: center; }
+.recent-svc { flex: 1; min-width: 0; display: flex; align-items: center; gap: 5px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.recent-svc .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.recent-amt { flex-shrink: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.recent-more { background: none; border: none; color: var(--text-secondary); font-size: 0.78rem; cursor: pointer; padding: 9px 0 2px; width: 100%; text-align: center; }
+.recent-more:hover { color: var(--text-primary); }
+
 /* 未確定クエスト（ダッシュボードのバー） */
 .quest-pending-bar {
   display: flex; align-items: center; gap: 8px;
@@ -717,6 +734,17 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   <!-- DASHBOARD -->
   <div id="tab-dashboard" class="tab-panel active">
     <div class="svc-legend-bar" id="svcLegendBar"></div>
+
+    <!-- 最近の記録（アプリを開いてすぐ「前回どこまで入力したか」を確認） -->
+    <div class="recent-card" id="recentCard">
+      <div class="recent-head">
+        <h3>📋 最近の記録</h3>
+        <span class="recent-last" id="recentLast"></span>
+      </div>
+      <div class="recent-list" id="recentList"></div>
+      <button class="recent-more" onclick="switchTab('history', document.querySelector('.tab-btn[onclick*=history]'))">履歴をすべて見る ›</button>
+    </div>
+
     <div class="summary-row">
       <div class="s-card total">
         <div class="s-main">
@@ -1311,8 +1339,47 @@ function renderServiceLegend() {
   ).join('');
 }
 
+// 最近の記録（対象ビューに連動。最終記録日＝前回どこまで入力したかが一目でわかる）
+function renderRecent() {
+  const card = document.getElementById('recentCard');
+  if (!card) return;
+  const md  = d => `${parseInt(d.slice(5,7))}/${parseInt(d.slice(8,10))}`;
+  const dow = d => ['日','月','火','水','木','金','土'][new Date(d + 'T00:00:00').getDay()];
+
+  const data = entries.filter(e => inView(e.person))
+    .slice().sort((a,b) => b.date.localeCompare(a.date) || String(b.id).localeCompare(String(a.id)));
+
+  const lastEl = document.getElementById('recentLast');
+  const listEl = document.getElementById('recentList');
+  if (!data.length) {
+    lastEl.textContent = '';
+    listEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.8rem;padding:6px 0">まだ記録がありません</div>';
+    return;
+  }
+
+  const latest = data[0].date;
+  const t = new Date();
+  const diff = Math.round((new Date(t.getFullYear(), t.getMonth(), t.getDate()) - new Date(latest + 'T00:00:00')) / 86400000);
+  const ago = diff <= 0 ? '今日' : diff === 1 ? '昨日' : `${diff}日前`;
+  lastEl.textContent = `最終 ${md(latest)}(${dow(latest)})・${ago}`;
+
+  let prevDate = null;
+  listEl.innerHTML = data.slice(0, 10).map(e => {
+    const cfg = SERVICES[e.service] || { color: '#888' };
+    const newday = prevDate && prevDate !== e.date ? ' newday' : '';
+    prevDate = e.date;
+    return `<div class="recent-row${newday}">
+      <span class="recent-date">${md(e.date)}(${dow(e.date)})</span>
+      <span class="recent-person ${e.person==='自分'?'p-self':'p-wife'}">${e.person==='自分'?'自':'妻'}</span>
+      <span class="recent-svc"><span class="dot" style="background:${cfg.color}"></span>${e.service}</span>
+      <span class="recent-amt">${fmt(e.amount)}</span>
+    </div>`;
+  }).join('');
+}
+
 function renderDashboard() {
   renderServiceLegend();
+  renderRecent();
   const data = monthEntries();
   const total = data.reduce((s,e)=>s+e.amount,0);
   const totalD = data.reduce((s,e)=>s+e.deliveries,0);

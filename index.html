@@ -171,6 +171,9 @@ body {
 .s-card .s-sub { font-size: 0.8rem; color: var(--text-muted); }
 .s-sub .s-last { color: var(--text-secondary); font-weight: 700; }
 .s-sub .s-last.stale { color: #FFB300; }
+.s-sub a.s-upload { text-decoration: none; cursor: pointer; }
+.s-sub a.s-upload:hover { text-decoration: underline; }
+.s-sub a.s-upload:active { opacity: 0.6; }
 
 /* SERVICE CARDS */
 .svc-row {
@@ -1195,6 +1198,12 @@ function catDefaultRatio(key) {
 // 家事按分後の計上額（経費になる額）
 function expBusiness(e) { return Math.round(e.amount * (e.ratio ?? 100) / 100); }
 
+// スクショ投入先 Google Drive フォルダ（delivery_inbox 配下・人物別）。オーナー info@nadymade.com
+const INBOX_URL = {
+  '自分': 'https://drive.google.com/drive/folders/1bYkdOd99imXRcQTKl1f9_OhyjiaAczgF',
+  '妻':   'https://drive.google.com/drive/folders/1X9hskJJJLHr3Lke-u1pMRTYXMOLImYUu',
+};
+
 // ── State ──
 let entries = [];
 let expenses = [];
@@ -1332,13 +1341,20 @@ function renderDashboard() {
   const _t = new Date();
   const _todayStr = `${_t.getFullYear()}-${String(_t.getMonth()+1).padStart(2,'0')}-${String(_t.getDate()).padStart(2,'0')}`;
   const lastWorkHtml = (person) => {
+    const url = INBOX_URL[person];
     const ds = entries.filter(e => e.person === person && (e.deliveries > 0 || e.amount > 0)).map(e => e.date);
-    if (!ds.length) return '';
+    if (!ds.length) {
+      // 記録がなくてもアップロード導線は出す
+      return url ? ` · <a class="s-upload" href="${url}" target="_blank" rel="noopener" title="スクショのアップロード先フォルダを開く">スクショ投入 📤</a>` : '';
+    }
     const last = ds.sort().at(-1);
     const md = `${parseInt(last.slice(5,7))}/${parseInt(last.slice(8,10))}`;
     const diff = Math.round((new Date(_todayStr + 'T00:00:00') - new Date(last + 'T00:00:00')) / 86400000);
     const stale = diff >= 3 ? ' stale' : '';   // 3日以上あいたらオレンジで軽く注意喚起
-    return ` · <span class="s-last${stale}">最終稼働 ${md}</span>`;
+    const label = `最終稼働 ${md} 📤`;
+    return url
+      ? ` · <a class="s-last s-upload${stale}" href="${url}" target="_blank" rel="noopener" title="タップでスクショのアップロード先フォルダを開く">${label}</a>`
+      : ` · <span class="s-last${stale}">最終稼働 ${md}</span>`;
   };
 
   countUp(document.getElementById('totalAmt'), total);

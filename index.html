@@ -852,7 +852,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
           </div>
           <div class="fg full" id="rocketTip" style="display:none">
             <div class="rocket-tip">
-              ℹ️ <strong>ロケットナウ</strong> はスクショ撮影不可のため、アプリで金額を確認して手動で入力してください。
+              ℹ️ <strong>ロケットナウ</strong> は週次の「MY収入」画面をアップロードすれば、日別の配達収入とミッションボーナスに<strong>自動で分解</strong>して取り込まれます。単発で直したいときだけ、このフォームから手入力してください。
             </div>
           </div>
           <div class="fg full">
@@ -1408,7 +1408,7 @@ function renderDashboard() {
     return `<div class="svc-card" style="border-left-color:${cfg.color}">
       <div class="svc-hd">
         ${svcLogoImg(cfg, 'svc-logo')}
-        <div class="svc-name">${svc}${svc==='ロケットナウ'?' <span style="font-size:0.65rem;color:var(--text-muted)">手動</span>':''}</div>
+        <div class="svc-name">${svc}</div>
       </div>
       <div class="svc-split">${rows}</div>
       ${totBar}

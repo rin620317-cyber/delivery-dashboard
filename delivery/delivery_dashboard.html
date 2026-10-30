@@ -1166,10 +1166,11 @@ const SERVICES = {
   'Uber Eats':  { color: '#06C167', bg: 'rgba(6,193,103,0.13)',  domain: 'ubereats.com' },
   '出前館':     { color: '#e60012', bg: 'rgba(230,0,18,0.13)',   domain: 'demae-can.com' },
   'menu':       { color: '#FF6B00', bg: 'rgba(255,107,0,0.13)',  domain: 'menu.jp' },
-  'ロケットナウ': { color: '#4A90E2', bg: 'rgba(74,144,226,0.13)', domain: 'rocketnow.jp' },
+    'ロケットナウ': { color: '#4A90E2', bg: 'rgba(74,144,226,0.13)', icon: 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%234A90E2%27/%3E%3Cpath d=%27M11.5 15.5L8.5 21h3zM20.5 15.5L23.5 21h-3z%27 fill=%27%23ffffff%27/%3E%3Cpath d=%27M16 6c3 3 4.5 6.5 4.5 10v3h-9v-3c0-3.5 1.5-7 4.5-10z%27 fill=%27%23ffffff%27/%3E%3Ccircle cx=%2716%27 cy=%2712.5%27 r=%272%27 fill=%27%234A90E2%27/%3E%3Cpath d=%27M13.8 19h4.4L16 25z%27 fill=%27%23FFD166%27/%3E%3C/svg%3E' },
   'DiDi':       { color: '#9C27B0', bg: 'rgba(156,39,176,0.13)', domain: 'didifood.com', retiredAfter: 2025 },
 };
 function svcLogoImg(cfg, cls) {
+  if (cfg.icon) return `<img class="${cls}" src="${cfg.icon}" alt="">`;
   if (!cfg.domain) return `<div class="svc-dot" style="background:${cfg.color}"></div>`;
   return `<img class="${cls}" src="https://www.google.com/s2/favicons?domain=${cfg.domain}&sz=32" alt="" onerror="this.style.display='none'">`;
 }
